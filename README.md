@@ -7,6 +7,12 @@ The repository joins the two maintained codebases on the remote device:
 - data collection and processing from DexUMI
 - training and real-robot inference from Dex_Data-Scaling-Laws-Infer
 
+<p align="center">
+  <a href="https://human2dex.pages.dev/">
+    <img src="https://img.shields.io/badge/Project-Page-2762A6?style=for-the-badge" alt="Project Page" />
+  </a>
+</p>
+
 ## Workflow
 
 The supported path is:
