@@ -1,0 +1,94 @@
+# DexUMI mask-guided hand appearance + wrist camera mount augmentation config.
+#
+# Purpose:
+#   Generate an offline augmented PKL/image dataset for DP training.
+#   - Hand mask controls only hand appearance augmentation.
+#   - Camera mount augmentation is applied to the full RGB frame.
+#   - PKL/action/timestamps are copied unchanged.
+#
+# Run a small QC first:
+#   cd /home/zjc/Desktop/human2dex
+#   /share/project/liyuanyuan/anaconda3/envs/sam3/bin/python \
+#     glove_aug_pipeline/02_augment_dataset.py \
+#     --config glove_aug_pipeline/02_augment_pick_6_pro_camera_mount.yaml \
+#     --limit-episodes 1 \
+#     --limit-frames 80 \
+#     --workers 1 \
+#     --overwrite
+
+paths:
+  input: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_6_mix_5/pick_6_mix_5
+  output: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_6_mix_5/pick_6_mix_5_cam_mount_aug
+  mask_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_6_mix_5/pick_6_mix_5_sam3_masks
+  roi: null
+  qc_output: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_6_mix_5/pick_6_mix_5_cam_mount_aug_qc
+  image_subdirs:
+    - images
+
+run:
+  variants: 3
+  episode_suffix: _cam_mount_aug
+  seed: 20260728
+  quality: 95           #JPG 保存质量
+  qc_frames: 8
+  overwrite: false
+  save_masks: false
+  no_progress: false
+
+limits:
+  episode: null
+  limit_episodes: null
+  limit_frames: null
+
+parallel:
+  workers: 8
+  io_workers: 4
+  mp_start_method: fork
+
+mask:
+  min_mask_area: 180
+  bbox_padding: 8
+  feather_radius: 4.0
+
+style:
+  glove_variation: extreme
+  glove_material: mixed
+  background_variation: normal
+
+# Full-image wrist camera perturbation. This simulates camera mount/crop changes
+# between human collection and dexterous-hand deployment.
+camera_mount_aug:
+  enabled: true
+  p: 0.8 
+  rotation_deg: [-10.0, 10.0] #模拟相机绕光轴旋转
+  translate_ratio_x: [-0.10, 0.10] # 相机安装中心偏移 0.10表示图像宽/高的 10%
+  translate_ratio_y: [-0.15, 0.15]
+  scale: [0.88, 1.15] #相机距离/裁剪导致的大小变化
+  shear_deg: [-10.0, 10.0] #模拟轻微俯仰/侧偏视角
+  interpolation: bilinear
+  padding_mode: edge
+  fill_value: 0
+
+  # Keep frame-level jitter small; the mount profile itself is episode-stable.
+  frame_jitter:
+    enabled: true
+    rotation_deg: [-1.0, 1.0]
+    translate_px: [-3.0, 3.0]
+    scale: [0.99, 1.01]
+
+# Advanced ranges. Keep null to use the preset selected above.
+advanced:
+  glove_mix_range: null
+  glove_brightness_range: null
+  glove_contrast_range: null
+  glove_texture_strength_range: null
+  glove_noise_strength_range: null
+  glove_rib_strength_range: null
+  glove_speckle_strength_range: null
+  glove_sheen_strength_range: null
+  glove_shade_contrast_range: null
+  bg_brightness_range: null
+  bg_contrast_range: null
+  bg_hue_shift_range: null
+  bg_saturation_range: null
+  bg_mix_range: null

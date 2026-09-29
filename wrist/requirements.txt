@@ -1,0 +1,9 @@
+torch
+transformers>=4.56.0
+safetensors
+opencv-python
+numpy
+pyyaml
+matplotlib
+tqdm
+git+https://github.com/lixiny/manotorch.git

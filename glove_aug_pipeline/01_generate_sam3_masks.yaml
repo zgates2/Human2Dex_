@@ -1,0 +1,139 @@
+# SAM3 人手 mask 生成配置。
+# 使用方式：
+#   /share/project/liyuanyuan/anaconda3/envs/sam3/bin/python \
+#     /home/zjc/Desktop/human2dex/glove_aug_pipeline/01_generate_sam3_masks.py \
+#     --config /home/zjc/Desktop/human2dex/glove_aug_pipeline/01_generate_sam3_masks.yaml
+#
+# 这个预设针对“采集到真实人手”的数据。
+# 如果相机是从手腕看向手心，人手形状不完整、SAM3 原始置信度偏低，
+# 优先使用这里的低阈值召回 + 单实例强制选择配置。
+
+# 原始数据集根目录。每个 episode 下面应有 images/，可选包含 L515 RGB。
+input: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/cup_1/cup_1
+
+# SAM3 mask 输出目录。
+# 小样本测试建议输出到 *_force_test，确认 overlays 质量后再改成正式目录。
+output: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/cup_1/cup_1
+
+# SAM3 权重文件路径。
+checkpoint: /home/zjc/Desktop/human2dex/sam3/sam3_pt/sam3.pt
+
+# SAM3 官方代码路径，脚本会把它加入 Python import path。
+sam3_code: /home/zjc/Desktop/human2dex/sam3/sam3-code
+
+# 要处理的 RGB 图像流。
+image_subdirs:
+  - images
+  # - l515/ego/rgb
+  # - l515/external/rgb
+
+# 文本提示列表。
+# 多个 prompt 的候选会合并后重新排序；建议保留人手、手指、手掌等精确 prompt。
+# 不建议使用 sponge、plate、white object、cloth、table 等词，容易召回海绵、
+# 盘子、桌布或背景。
+prompt:
+  - human hand
+  - bare hand
+  - palm
+
+# 推理设备。auto 会优先使用 CUDA。
+device: auto
+
+# CUDA autocast 类型。
+# A100 用 float16 或 bfloat16 都可以；如果遇到 dtype 问题，先用 float16。
+amp_dtype: float16
+
+# SAM3 图像推理分辨率。越大通常越准，但显存和速度开销越高。
+resolution: 1008
+
+# 是否启用模型 compile。通常先保持 false，避免首次编译耗时和兼容性问题。
+compile: false
+
+# SAM3 内部候选召回阈值。
+# 这里故意设低，让不完整人手、低置信度人手先进入候选池。
+# 漏检多：可降到 0.10；误检多：可升到 0.20~0.25。
+candidate_confidence_threshold: 0.2
+
+# 最终置信度参考阈值。
+# 在 force_single_instance=true 时，低于该值的候选仍可能被保留，但会在 stats
+# 和 overlay 中标记为 below_confidence / 星号。
+confidence_threshold: 0.35
+
+# 强制每帧只选择一个最像人手的实例。
+# 适合当前“每帧只有一只目标手”的假设；如果以后画面里有多只手，改为 false。
+force_single_instance: false
+
+# 每帧最多保留实例数。
+# force_single_instance=true 时脚本会强制使用 1。
+max_instances: 1
+
+# 候选去重 IoU 阈值。两个候选 mask 重叠超过该值时只保留高分候选。
+dedupe_iou: 0.85
+
+# 人手形状/外观先验权重。参数名保留 glove_prior_weight 以兼容旧 CLI。
+# 该分数偏向“亮度可见、肤色/暖色合理、面积和形状合理”的候选。
+# 漏手：增大到 0.45；误选背景或木桌：减小到 0.15~0.25。
+glove_prior_weight: 0.35
+
+# 时序重叠权重。
+# 候选和上一帧 mask 越重合，排序越靠前。动作连续时可提高稳定性。
+# mask 在多个目标之间跳动：增大到 0.7；快速运动导致跟不上：减小到 0.2。
+track_overlap_weight: 0.50
+
+# 人手合理面积下界，只用于 hand_prior_score 排序，不是硬过滤。
+prior_min_area_ratio: 0.001
+
+# 人手合理面积上界，只用于 hand_prior_score 排序，不是硬过滤。
+prior_max_area_ratio: 0.22
+
+# 硬过滤：mask 面积小于该像素数会被丢掉。
+min_mask_area: 300
+
+# 硬过滤：mask 面积占整图比例超过该值会被丢掉。
+# 如果误选大面积背景，降低到 0.30~0.35。
+max_area_ratio: 0.5
+
+# mask 闭运算次数，用于填补小孔、连接小断裂。
+close_iterations: 1
+
+# mask 膨胀次数，用于补不完整人手边缘。
+# 如果 mask 总是偏小，设 1；如果明显漏到背景，改回 0。
+dilate_iterations: 1
+
+# 只保留每个候选 mask 的最大连通域，通常能去掉碎片噪声。
+keep_largest_component: true
+
+# 某一帧完全没有候选时，是否复用上一帧 mask。
+# 序列非常连续且偶发漏检时可改 true；如果动作变化大，保持 false。
+reuse_previous_on_miss: true
+
+# 小样本测试 episode 数。全量生成时改成 null。
+limit_episodes: null
+
+# 每个 episode 的测试帧数。全量生成时改成 null。
+limit_frames: null
+
+# 指定 episode 名列表。空列表表示不指定，按 limit_episodes 选择。
+episode: []
+
+# 每个 episode 保存多少张 overlay 质检图。
+qc_frames: 8
+
+# 是否覆盖已有 mask。调参重跑时建议 true；断点续跑且不想覆盖时改 false。
+overwrite: false
+
+# SAM3 backbone batch 编码大小。显存不足就降到 2 或 1。
+batch_size: 8
+
+# 图片预取帧数。一般不用改。
+prefetch: 8
+
+# 相邻帧差异很小时复用上一帧 mask 的图像差异阈值。
+# 0 表示关闭；可以尝试 0.01~0.02 加速近似静止片段。
+skip_threshold: 0
+
+# 使用 GPU 数量。auto 表示使用当前可见的所有 GPU；也可以设成 1、2 等整数。
+num_gpus: 8
+
+# 是否关闭进度条。后台跑并重定向日志时可设 true。
+no_progress: false

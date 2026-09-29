@@ -1,0 +1,309 @@
+import math
+import threading
+import time
+import queue
+from motor.motor import LkMotor
+from motor.protocol import radian_to_degree
+from loguru import logger
+
+class GripperController:
+    # MM_PER_SINGLE_MOTOR_RADIAN = 45.0000
+    # MM_PER_SINGLE_MOTOR_RADIAN = 30.0000
+    # MOTOR_PHYSICAL_LIMIT_RAD = math.pi / 2
+    MOTOR_PHYSICAL_LIMIT_M = 0.16
+    MOTOR_PHYSICAL_LIMIT_M = 0.20
+    POSITION_REACHED_THRESHOLD_RAD = 0.02
+    
+    SOFT_TORQUE_THRESHOLD_RATIO = 0.8
+    BACK_OFF_STEP_RAD = 0.01
+    
+    VELOCITY_P_GAIN = 200.0
+    MAX_SPEED_DPS = 60.0
+
+    def __init__(self, port: str = None, motor_id: int = None, 
+                 mode: str = 'single', port1: str = None, motor1_id: int = None,
+                 **kwargs):
+        """
+        初始化夹爪控制器（单电机模式）
+        
+        Args:
+            port: 电机端口（新格式）
+            motor_id: 电机ID（新格式）
+            mode: 控制模式，默认'single'（仅支持单电机，保留参数用于向后兼容）
+            port1: 电机端口（旧格式，向后兼容）
+            motor1_id: 电机ID（旧格式，向后兼容）
+        """
+        # 向后兼容：支持旧的参数名
+        if port is None and port1 is not None:
+            port = port1
+        if motor_id is None and motor1_id is not None:
+            motor_id = motor1_id
+            
+        if port is None or motor_id is None:
+            raise ValueError("必须提供 port 和 motor_id 参数")
+            
+        if mode != 'single':
+            print(f"[警告] 仅支持单电机模式，mode='{mode}' 将被忽略")
+        
+        print(f"控制器初始化（单电机模式）...")
+        self.motor = LkMotor(port, motor_id=motor_id)
+
+        self.MM_PER_SINGLE_MOTOR_RADIAN = 30.0000
+        self.ratio = 1.2
+        
+        # MIT阻抗控制参数 (优化夹持力)
+        self.KP = 1.5   # 位置刚度 [Nm/rad] - 提高夹持力
+        self.KD = 0.1 # 速度阻尼 [Nm·s/rad] - 抑制震荡
+        
+        self.TORQUE_LIMIT = 2.0  # 最大力矩限制 [Nm]
+        
+        # 夹持力增强：目标位置偏移量
+        self.GRIPPER_CLOSE_OFFSET_RAD = 0.15  # 目标位置向闭合方向偏移0.00 rad
+        self.DT = 1 / 120.0
+        
+        # 目标位置变化率限制，防止突变导致不稳定
+        # 最大变化速度: 3.14 rad/s
+        self.target_position_rad_max_delta = 3.14 * self.DT  # ≈ 0.0785 rad per cycle
+        
+        # single motor control
+        self.MIN_SPEED_DPS = 8.0            # 起步最小速度（°/s）
+        self.MAX_ACCEL_DPS2 = 800.0         # 最大角加速度（°/s^2）
+        self.VELOCITY_P_GAIN = 120.0        # 位置误差 -> 速度（°/s / rad）
+        self.SOFT_TORQUE_THRESHOLD_RATIO = 0.75
+        self.SOFT_HOLD_CYCLES = 3
+        self.SOFT_RELEASE_RATIO = 0.6
+        self.BACKOFF_SPEED_RATIO = 0.35
+        self.BACKOFF_TIME_S = 0.15
+        self.TORQUE_DEADBAND = 0.08
+        self._speed_dir_sign = 1.0
+
+        # 扭矩低通滤波状态
+        self._torque_filt = 0.0
+        self._torque_lpf_alpha = 0.2
+
+        self.thread = None
+        self.command_queue = queue.Queue()
+
+        self.current_position_rad = 0.0
+        self.current_vel = 0.0
+        self.current_torque_nm = 0.0
+        
+        self.busy_wait_threshold = 0.0015
+        
+    def _angle_to_width(self, angle_rad: float) -> float:
+        width_mm = angle_rad * self.MM_PER_SINGLE_MOTOR_RADIAN
+        return width_mm / 1000.0 * 2.0
+
+    def _width_to_angle(self, width_m: float) -> float:
+        limited_width_m = min(width_m, self.MOTOR_PHYSICAL_LIMIT_M)
+        width_mm = limited_width_m * 1000.0 / 2.0
+        angle_rad = width_mm / self.MM_PER_SINGLE_MOTOR_RADIAN
+        
+        return angle_rad
+        # return min(angle_rad, self.MOTOR_PHYSICAL_LIMIT_RAD)
+
+    def get_current_gripper_width(self) -> float:
+        """获取当前夹爪的开合宽度 (m)"""
+        return self._angle_to_width(self.current_position_rad)
+
+    def get_current_gripper_force(self) -> float:
+        """获取当前夹爪的夹持力 (Nm)"""
+        return self.current_torque_nm
+
+    def get_current_gripper_states(self):
+        """获取当前夹爪的状态"""
+        width = self.current_position_rad
+        vel = self.current_vel
+        force = self.current_torque_nm
+        return [width, vel, force, 0, 0, 0]
+    
+    def move_gripper(self, width_m: float, force_limit_nm: float, feedforward_torque_nm: float = 0.0):
+        """
+        移动夹爪到目标位置，同时可选地施加前馈力矩
+        
+        Args:
+            width_m: 目标位置 (rad)
+            force_limit_nm: 最大允许力矩，安全限制 (Nm)
+            feedforward_torque_nm: 前馈力矩，用于主动施加接触力 (Nm)，默认为0
+        """
+        # target_rad = self._width_to_angle(width_m)
+        target_rad = width_m
+        self.command_queue.put(('move', target_rad, abs(force_limit_nm), feedforward_torque_nm))
+        if feedforward_torque_nm != 0.0:
+            logger.warning(f"指令已发送: 移动到 {target_rad:.3f} rad, 力限制: {abs(force_limit_nm):.2f} Nm, 前馈力矩: {feedforward_torque_nm:.2f} Nm")
+        else:
+            logger.warning(f"指令已发送: 移动到 {target_rad:.3f} rad, 力限制: {abs(force_limit_nm):.2f} Nm")
+
+    def move_gripper_force(self, force_limit_nm: float, close_speed_dps: float = 30.0):
+        self.command_queue.put(('grasp', abs(force_limit_nm), abs(close_speed_dps)))
+        print(f"指令已发送: 夹持至力矩达到 {abs(force_limit_nm):.2f} Nm")
+    
+    def stop_gripper(self):
+        self.command_queue.put(('stop',))
+        print("[事件] 停止指令已发送。")
+            
+    def _run(self):
+        self._control_loop()
+        print("控制循环已结束。")
+        
+    def precise_sleep(self, delay):
+        target_time = time.perf_counter() + delay
+        
+        sleep_duration = delay - self.busy_wait_threshold
+        if sleep_duration > 0:
+            time.sleep(sleep_duration)
+        
+        while time.perf_counter() < target_time:
+            pass
+
+    def _control_loop(self):
+        """
+        单电机控制循环,实现"位置保持"功能。kill -9 $(lsof -ti:8099)
+        """
+        print("开始单电机控制循环 (位置保持模式)...")
+        running = True
+
+        control_state = 'IDLE' 
+        
+        # 期望的目标位置（可能突变）
+        desired_position_rad = 0.0
+        # 实际使用的目标位置（经过变化率限制平滑处理）
+        actual_target_position_rad = 0.0
+        # 前馈力矩（目标接触力）
+        feedforward_torque_nm = 0.0
+        # 力矩限制（安全上限）
+        current_force_limit_nm = self.TORQUE_LIMIT
+
+        while running:
+            loop_start = time.perf_counter()
+
+            try:
+                command = self.command_queue.get_nowait()
+                cmd_type = command[0]
+
+                if cmd_type == 'shutdown':
+                    running = False
+                    continue
+                
+                elif cmd_type == 'move':
+                    _, desired_position_rad, force_limit_nm, feedforward_torque = command
+                    current_force_limit_nm = force_limit_nm
+                    feedforward_torque_nm = feedforward_torque
+                    control_state = 'POSITION_MODE' 
+
+            except queue.Empty:
+                pass
+            
+            if control_state == 'POSITION_MODE':
+                # 应用夹持偏移：让目标位置略小于策略输出，产生持续闭合力
+                adjusted_desired_position = desired_position_rad - self.GRIPPER_CLOSE_OFFSET_RAD
+                
+                # 限制目标位置变化率，防止突变导致不稳定
+                position_diff = adjusted_desired_position - actual_target_position_rad
+                if abs(position_diff) > self.target_position_rad_max_delta:
+                    actual_target_position_rad += math.copysign(self.target_position_rad_max_delta, position_diff)
+                else:
+                    actual_target_position_rad = adjusted_desired_position
+                
+                self.motor.refresh()
+
+                if getattr(self.motor, 'refresh_ok', True) is False:
+                    print("[警告] 电机数据无效，跳过此次循环。")
+                    self.precise_sleep(self.DT)
+                    continue
+
+                pos_rad, vel_rad_s, torque_nm = self.motor.getPosition(), self.motor.getVelocity(), self.motor.getTorque()
+                
+                self.current_position_rad = pos_rad
+                self.current_vel = vel_rad_s
+                self.current_torque_nm = torque_nm
+                
+                # 使用经过平滑处理的目标位置
+                pos_error = actual_target_position_rad - pos_rad
+                vel_error = 0.0 - vel_rad_s
+                
+                # 力矩前馈 + 位置反馈控制
+                torque_cmd = feedforward_torque_nm + self.KP * pos_error + self.KD * vel_error
+                
+                # 使用指定的力矩限制
+                torque_cmd = max(-current_force_limit_nm, min(current_force_limit_nm, torque_cmd))
+
+                self.motor.set_torque_nm(torque_cmd)
+
+            elapsed = time.perf_counter() - loop_start
+            remaining_time = self.DT - elapsed
+            if remaining_time > 0:
+                time.sleep(remaining_time)
+        
+        self.motor.stop()
+        print("单电机控制循环已停止。")
+
+    def start(self):
+        if self.thread is not None and self.thread.is_alive():
+            print("控制器已经启动。"); return
+            
+        print("启动电机..."); self.motor.enable(); time.sleep(1)
+
+        print("设置当前位置为零点..."); self.motor.set_zero_ram(); time.sleep(2)
+
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread.start()
+        print("控制器已启动。")
+
+    def stop(self):
+        print("正在停止控制循环...")
+        if self.thread and self.thread.is_alive():
+            self.command_queue.put(('shutdown',))
+            self.thread.join(timeout=2.0)
+            if self.thread.is_alive():
+                print("[警告] 控制线程未能正常结束。")
+        
+        print("正在关闭电机...")
+        try:
+            self.motor.disable()
+        except Exception as e:
+            print(f"关闭电机时发生错误: {e}")
+        print("控制器已安全停止。")
+
+if __name__ == "__main__":
+    
+    print("\n--- 测试单电机控制模式 ---")
+    gripper = GripperController(port="/dev/ttyUSB2", motor_id=2)
+    try:
+        gripper.start()
+        time.sleep(1)
+
+        print("\n[任务1] 移动到 3.0 rad，力限制 1.5 Nm...")
+        gripper.move_gripper(width_m=3.0, force_limit_nm=1.5)
+        
+        for _ in range(30):
+            time.sleep(0.1)
+            width, _, force, _, _, _ = gripper.get_current_gripper_states()
+            print(f"状态: 弧度={width:.4f} rad, 力={force:.3f} Nm", end='\r')
+        print("\n任务1完成。")
+
+        time.sleep(1)
+        print("\n[任务2] 移动到 1.5 rad，施加 0.5 Nm 前馈力矩...")
+        gripper.move_gripper(width_m=1.5, force_limit_nm=1.5, feedforward_torque_nm=0.5)
+        
+        for _ in range(50):
+            time.sleep(0.1)
+            width, _, force, _, _, _ = gripper.get_current_gripper_states()
+            print(f"状态: 弧度={width:.4f} rad, 力={force:.3f} Nm", end='\r')
+        print("\n任务2完成。")
+        
+        time.sleep(1)
+        print("\n[任务3] 移动到 0.5 rad，施加 1.0 Nm 前馈力矩（模拟夹持）...")
+        gripper.move_gripper(width_m=0.5, force_limit_nm=2.0, feedforward_torque_nm=1.0)
+        
+        for _ in range(50):
+            time.sleep(0.1)
+            width, _, force, _, _, _ = gripper.get_current_gripper_states()
+            print(f"状态: 弧度={width:.4f} rad, 力={force:.3f} Nm", end='\r')
+        print("\n任务3完成。")
+
+    except KeyboardInterrupt:
+        print("\n检测到手动中断...")
+    finally:
+        gripper.stop()
+

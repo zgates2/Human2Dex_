@@ -1,0 +1,248 @@
+'''
+This file initiate the DeviceMappingServer
+The server then dynamic maintain the mapping between
+cameras and the topics
+'''
+
+from fastapi import FastAPI
+import uvicorn
+from omegaconf import DictConfig
+import subprocess
+import pyrealsense2 as rs
+from pydantic import BaseModel
+from typing import Dict, Optional, List
+from loguru import logger
+import os
+
+class RealsenseCameraInfo(BaseModel):
+    topic_image: str
+    topic_pointcloud: Optional[str] = None
+    device_id: str
+    type: str
+
+# class UsbCameraInfo(BaseModel):
+#     topic_image: str
+#     device_id: int
+#     type: str
+
+class UsbCameraInfo(BaseModel):
+    topic_image: str
+    topic_marker: str
+    device_id: str
+    type: str
+    
+
+class GelsightCameraInfo(BaseModel):
+    topic_image: str
+    topic_marker: str
+    device_id: str
+    type: str
+    
+class FisheyeCameraInfo(BaseModel):
+    topic_image: str
+    device_id: str
+    type: str
+
+class SynexensCameraInfo(BaseModel):
+    topic_depth: str
+    topic_ir: str
+    device_id: str
+    type: str
+
+class DeviceToTopic(BaseModel):
+    realsense: Dict[str, RealsenseCameraInfo] = {}
+    usb: Dict[str, UsbCameraInfo] = {}
+    gelsight: Dict[str, GelsightCameraInfo] = {}
+    fisheye: Dict[str, FisheyeCameraInfo] = {}
+    synexens: Dict[str, SynexensCameraInfo] = {}
+
+class DeviceMappingServer:
+    """Server class that defines the device mapping (device to ROS topic name)"""
+    def __init__(self, publisher_cfg: DictConfig, host_ip: str = '127.0.0.1', port: int = 8062):
+        self.host_ip = host_ip
+        self.port = port
+
+        self.app = FastAPI()
+        self.device_to_topic_mapping = DeviceToTopic()
+        self.init_mapping(publisher_cfg)
+        self.setup_routs()
+
+    def setup_routs(self):
+        @self.app.get("/get_mapping", response_model=DeviceToTopic)
+        def get_mapping() -> DeviceToTopic:
+            return self.device_to_topic_mapping
+
+    # @staticmethod
+    # def get_usb_camera_ids():
+    #     result = subprocess.run(['v4l2-ctl', '--list-devices'], stdout=subprocess.PIPE, text=True)
+    #     output = result.stdout
+
+    #     camera_ids = []
+    #     lines = output.split('\n')
+    #     current_camera_name = None
+    #     found_video_path = False
+
+    #     for line in lines:
+    #         if line.strip() == '':
+    #             current_camera_name = None
+    #             found_video_path = False
+    #             continue
+
+    #         if line.startswith('\t'):
+    #             '''
+    #             The device id of the usb camera is
+    #             the index in its first device path
+    #             '''
+    #             if (current_camera_name and ('USB camera' in current_camera_name or 'GelSight' in current_camera_name)
+    #                     and '/dev/video' in line and not found_video_path):
+    #                 device_id = line.split('/')[-1]
+    #                 camera_ids.append(int(device_id.replace('video', '')))
+    #                 found_video_path = True
+    #         else:
+    #             '''
+    #             obtain the name of the usb camera
+    #             '''
+    #             current_camera_name = line.strip()
+
+    #     return camera_ids
+    @staticmethod
+    def find_v4l_devices_by_id() -> Dict[str, str]:
+        base_path = '/dev/v4l/by-id/'
+        devices = {}
+        if not os.path.isdir(base_path):
+            logger.warning(f"Directory does not exist: {base_path}. Unable to find device by ID.")
+            return devices
+        
+        for f in os.listdir(base_path):
+            full_path = os.path.join(base_path, f)
+            if os.path.islink(full_path):
+                devices[f] = full_path
+        return devices
+
+    def init_mapping(self, publisher_cfg: DictConfig):
+        '''
+        get the device ids of the cameras in sequence
+        usb camera ids is a list
+        '''
+        # usb_camera_ids = self.get_usb_camera_ids()
+        available_v4l_devices = self.find_v4l_devices_by_id()
+
+        # realsence camera
+        if publisher_cfg.realsense_camera_publisher is not None:
+            for rs_cam in publisher_cfg.realsense_camera_publisher:
+                context = rs.context()
+                for device in context.query_devices():
+                    if device.get_info(rs.camera_info.serial_number) == rs_cam.camera_serial_number:
+                        self.device_to_topic_mapping.realsense[rs_cam.camera_name] = RealsenseCameraInfo(
+                            topic_image=f"/{rs_cam.camera_name}/color/image_raw",
+                            topic_pointcloud=f"/{rs_cam.camera_name}/depth/points",
+                            device_id=rs_cam.camera_serial_number,
+                            type="realsense"
+                        )
+                        break
+                    
+        def map_v4l_device(cam_cfg, device_dict, CameraInfoModel, device_type, available_v4l_devices):
+            if 'unique_id_substring' not in cam_cfg:
+                logger.warning(f"Missing 'unique_id_substring' in config for camera '{cam_cfg.camera_name}', skipping mapping.")
+                return
+
+            target_substring = cam_cfg.unique_id_substring
+            found_key = None
+            found_path = None
+
+            for key, path in available_v4l_devices.items():
+                if target_substring in key:
+                    found_key = key
+                    found_path = path
+                    break
+                
+            for key, path in available_v4l_devices.items():
+                if target_substring in key and key.endswith('-video-index0'):
+                    found_key, found_path = key, path
+                    break
+                
+            if not found_path:
+                for key, path in available_v4l_devices.items():
+                    if target_substring in key:
+                        found_key, found_path = key, path
+                        break
+            
+            if found_path:
+                logger.info(f"Found matching device for '{cam_cfg.camera_name}': {found_path}")
+                # if device_type == "gelsight":
+                if device_type == "usb":
+                    info = CameraInfoModel(
+                        topic_image=f'/{cam_cfg.camera_name}/color/image_raw',
+                        topic_marker=f'/{cam_cfg.camera_name}/marker_offset/information',
+                        device_id=found_path,
+                        # type="gelsight"
+                        type="usb"
+                    )
+                # else:
+                #      info = CameraInfoModel(
+                #         topic_image=f'/{cam_cfg.camera_name}/rgb/image_raw/compressed',
+                #         device_id=found_path,
+                #         type="Fisheye"
+                #     )
+                device_dict[cam_cfg.camera_name] = info
+                del available_v4l_devices[found_key]
+            else:
+                logger.warning(f"No matching device found for '{cam_cfg.camera_name}' (unique_id: {target_substring}).")
+        
+        # if publisher_cfg.usb_camera_publisher is not None:
+        #     for usb_cam in publisher_cfg.usb_camera_publisher:
+        #         map_v4l_device(usb_cam, self.device_to_topic_mapping.usb, UsbCameraInfo, "usb", available_v4l_devices)
+        
+        # if publisher_cfg.gelsight_camera_publisher is not None:
+        if publisher_cfg.usb_camera_publisher is not None:
+            for gs_cam in publisher_cfg.usb_camera_publisher:
+            # for gs_cam in publisher_cfg.gelsight_camera_publisher:
+                # map_v4l_device(gs_cam, self.device_to_topic_mapping.gelsight, GelsightCameraInfo, "gelsight", available_v4l_devices)
+                # map_v4l_device(gs_cam, self.device_to_topic_mapping.gelsight, GelsightCameraInfo, "usb", available_v4l_devices)
+                map_v4l_device(gs_cam, self.device_to_topic_mapping.usb, UsbCameraInfo, "usb", available_v4l_devices)
+        
+        # if publisher_cfg.fisheye_camera_publisher is not None:
+        #     for fe_cam in publisher_cfg.fisheye_camera_publisher:
+        #         map_v4l_device(fe_cam, self.device_to_topic_mapping.fisheye, FisheyeCameraInfo, "Fisheye", available_v4l_devices)
+        if publisher_cfg.fisheye_camera_publisher is not None:
+            for fe_cam in publisher_cfg.fisheye_camera_publisher:
+                # 直接信任 YAML 中的 unique_id_substring 为序列号
+                # MVS SDK 会在 Publisher 内部负责连接检查，这里 Server 只负责传递配置
+                if 'unique_id_substring' in fe_cam:
+                    serial_number = fe_cam.unique_id_substring
+                    logger.info(f"Mapping MVS/Fisheye camera '{fe_cam.camera_name}' to Serial: {serial_number}")
+                    
+                    self.device_to_topic_mapping.fisheye[fe_cam.camera_name] = FisheyeCameraInfo(
+                        # 确保这里的话题名和 Publisher 里的 format 一致
+                        topic_image=f'/{fe_cam.camera_name}/rgb/image_raw/compressed',
+                        device_id=serial_number, # 这里存的是序列号，不再是 /dev/videoX
+                        type="MVS" # 修改类型为 MVS，方便 main.py 识别
+                    )
+                else:
+                    logger.error(f"Fisheye camera {fe_cam.camera_name} config missing 'unique_id_substring' (Serial Number)")
+
+        if hasattr(publisher_cfg, 'synexens_camera_publisher') and publisher_cfg.synexens_camera_publisher is not None:
+            for sx_cam in publisher_cfg.synexens_camera_publisher:
+                # Based on realsense/fisheye, if no device_id/SN discovery is needed we just hardcode or use serial config
+                serial_or_index = str(getattr(sx_cam, 'camera_serial_number', getattr(sx_cam, 'camera_index', '0')))
+                self.device_to_topic_mapping.synexens[sx_cam.camera_name] = SynexensCameraInfo(
+                    topic_depth=f'/{sx_cam.camera_name}/depth/image_raw',
+                    topic_ir=f'/{sx_cam.camera_name}/ir/image_raw',
+                    device_id=serial_or_index,
+                    type="synexens"
+                )
+
+        # usb camera
+        # Here we suppose the usb cameras are in sequence
+        # if publisher_cfg.usb_camera_publisher is not None:
+        #     for index, usb_cam in zip(usb_camera_ids, publisher_cfg.usb_camera_publisher):
+        #         self.device_to_topic_mapping.usb[usb_cam.camera_name] = UsbCameraInfo(
+        #             topic_image=f'/{usb_cam.camera_name}/color/image_raw',
+        #             topic_marker=f'/{usb_cam.camera_name}/marker_offset/information',
+        #             device_id=index,
+        #             type="usb"
+        #         )
+
+    def run(self):
+        logger.info(f"Device mapping server is running on {self.host_ip}:{self.port}")
+        uvicorn.run(self.app, host=self.host_ip, port=self.port)

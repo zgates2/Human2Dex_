@@ -1,0 +1,162 @@
+# Single-view open_drawer pipeline with independent human-hand masks and one
+# drawer task-object observation. Keep the raw dataset immutable and place all
+# derived data in the adjacent versioned output bundle below.
+
+runtime:
+  repo_root: /home/zjc/Desktop/human2dex
+  python: /share/project/liyuanyuan/anaconda3/envs/sam3/bin/python
+  data_scaling_laws_root: /home/zjc/Desktop/human2dex
+
+paths:
+  raw_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/open_drawer/open_drawer
+  # Do not put this directory under raw_root: stage 01 recursively scans raw_root.
+  base_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/open_drawer/pipeline_object_obs_v1/base_enriched_v1
+  hand_masks_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/open_drawer/pipeline_object_obs_v1/sam3_hand_masks_v1
+  masks_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/open_drawer/pipeline_object_obs_v1/sam3_hand_masks_v1
+  task_object_reports_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/open_drawer/pipeline_object_obs_v1/task_object_reports_v1
+  appearance_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/open_drawer/pipeline_object_obs_v1/appearance_single_view_skeleton_v1
+  appearance_qc_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/open_drawer/pipeline_object_obs_v1/appearance_single_view_skeleton_v1_qc
+  qc_segments_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/open_drawer/pipeline_object_obs_v1/qc_segments_single_view_v1
+  o6_zarr_root: /share/project/liyuanyuan/data/dexglove_data/dex_data/linker_o6/open_drawer_drawer_object_pocket_single_view_skeleton_tcp_v1
+  wuji_zarr_root: /share/project/liyuanyuan/data/dexglove_data/dex_data/wuji/open_drawer_drawer_object_pocket_single_view_skeleton_tcp_v1
+
+reuse:
+  # The raw PKL string scan shows trajectoryPose/rgbImage/o6_command/wuji_command,
+  # but no trajectoryPose_tcp, fused_* or grasp-pocket fields.
+  wrist_fusion: false
+  grasp_pocket: false
+  hand_masks: false
+
+trajectory:
+  # Backfill only the writable base; never overwrite valid existing reference fields.
+  backfill_tcp: true
+  tcp_offset_mm: [-30.0, 40.0, 0.0]
+  invalid_policy: none
+  overwrite: false
+
+upstream:
+  sam3_config: /home/zjc/Desktop/human2dex/glove_aug_pipeline/01_generate_sam3_masks.yaml
+  appearance_config: /home/zjc/Desktop/human2dex/glove_aug_pipeline/02_augment_dataset.yaml
+
+models:
+  stage2_checkpoint: /home/zjc/Desktop/human2dex/wrist/outputs/test_3/runs/stage2_mano_onestage_v1/checkpoints/best.pt
+  wrist_projection_head_checkpoint: /home/zjc/Desktop/human2dex/wrist/outputs/stage2_projection_head_residual2d/proj_head_mano21_residual2d_grouped_20260730_200049/checkpoints/best.pt
+  pocket_head_checkpoint: /home/zjc/Desktop/human2dex/wrist/outputs/grasp_pocket_head/grasp_pocket_direct_v1/checkpoints/best.pt
+
+streams:
+  image_subdirs: [images]
+
+fields:
+  source_image: rgbImage
+  pocket_uv: wrist_grasp_pocket_uv
+  pocket_valid: wrist_grasp_pocket_valid
+  pocket_confidence: wrist_grasp_pocket_confidence
+  object_pocket_obs: objectPocketObs
+  object_pocket_valid: objectPocketObsValid
+  object_pocket_error: objectPocketObsError
+
+# This branch tracks the drawer only. Human-hand masks remain isolated in
+# paths.hand_masks_root and are used exclusively for appearance augmentation.
+task_object_tracking:
+  sam3_code: /home/zjc/Desktop/human2dex/sam3/sam3-code
+  checkpoint: /home/zjc/Desktop/human2dex/sam3/sam3_pt/sam3.pt
+  version: sam3
+  compile: false
+  overwrite: false
+  temp_root: /tmp/human2dex_open_drawer_task_objects
+  prompt_search_stride: 10
+  prompt_search_max_frames: 0
+  min_confidence: 0.25
+  min_area: 20
+  seed_min_area: 100
+  max_area_ratio: 0.45
+  jump_filter_enabled: true
+  jump_center_px: 75.0
+  jump_center_area_sqrt_factor: 3.0
+  jump_area_ratio_min: 0.30
+  jump_area_ratio_max: 3.0
+  jump_reseed_max_attempts: 24
+
+task_objects:
+  - name: drawer
+    prompt: drawer
+    field_prefix: task_object_drawer
+    min_confidence: 0.25
+    min_area: 20
+    seed_min_area: 100
+    reference_area_px2: auto
+    reference_scale_px: auto
+    required_for_qc: true
+
+object_observation:
+  source_fps: 30.0
+  tracker_hz: 4.0
+  latency_frames: 3
+  jitter_frames: 1
+  dropout_prob: 0.0
+  confidence_tau_seconds: 1.0
+  reference_scale_px: auto
+  log_area_clip: 4.0
+  combine_pocket_confidence: true
+  seed: 20260812
+
+pocket:
+  min_confidence: 0.10
+  overwrite: false
+
+appearance:
+  variants: 3
+  episode_suffix: _app_aug
+  seed: 20260812
+  jpeg_quality: 95
+  qc_frames: 8
+
+skeleton:
+  enabled: true
+  image_subdir: images
+  line_width: 2
+  point_radius: 4
+
+labels:
+  o6_action_field: fused_o6_command
+  wuji_action_field: fused_wuji_command
+  trajectory_field: trajectoryPose_tcp
+  trajectory_source: trajectoryPose_tcp
+  trajectory_min_dims: 6
+  skip_wuji: true
+
+qc:
+  min_segment_frames: 24
+  overlays_per_segment: 3
+  parent_episode_suffix_regex: "_app_aug[0-9]+$"
+
+zarr:
+  output_format: zip
+  image_compressor: blosc
+
+parallel:
+  prepare_workers: 64
+  wrist_devices: cuda:0,cuda:1,cuda:2,cuda:3,cuda:4,cuda:5,cuda:6
+  wrist_batch_size: 128
+  wrist_loader_workers: 8
+  wrist_precision: auto
+  wrist_log_every: 5
+  fusion_workers: 32
+  pocket_devices: [0, 1, 2, 3, 4, 5, 6]
+  pocket_batch_size: 128
+  pocket_loader_workers: 4
+  pocket_precision: auto
+  sam3_num_gpus: 7
+  sam3_batch_size: 32
+  sam3_prefetch: 8
+  task_object_devices: [0, 1, 2, 3, 4, 5, 6]
+  object_obs_workers: 32
+  appearance_workers: 32
+  appearance_io_workers: 2
+  appearance_mp_start_method: fork
+  qc_workers: 32
+  zarr_workers: 64
+  zarr_opencv_threads: 1
+  zarr_blosc_threads: 1
+  zarr_image_batch_size: 32
+  zarr_max_inflight_tasks: 128

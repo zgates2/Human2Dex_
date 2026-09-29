@@ -1,0 +1,34 @@
+# Build Wuji zarr from the already second-pass-trimmed canteen_water PKLs.
+# This does not re-trim and does not touch the raw canteen_water dataset.
+
+runtime:
+  repo_root: /home/zjc/Desktop/human2dex
+  python: /share/project/liyuanyuan/anaconda3/envs/sam3/bin/python
+  data_scaling_laws_root: /home/zjc/Desktop/human2dex
+
+paths:
+  # Already processed and second-pass-trimmed PKLs:
+  #   tail150 was applied first;
+  #   then tail50 was applied, plus extra100 when the processed source episode had >500 frames.
+  appearance_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/pipeline_no_object_no_skeleton_tail150_tail50_gt500_extra100_v1/appearance_single_view_tail150_tail50_gt500_extra100_v1
+  wuji_zarr_root: /share/project/liyuanyuan/data/dexglove_data/dex_data/wuji/canteen_water_no_object_single_view_tcp_no_skeleton_tail150_tail50_gt500_extra100_v1
+
+fields:
+  source_image: rgbImage
+
+labels:
+  wuji_action_field: fused_wuji_command
+  trajectory_field: trajectoryPose_tcp
+  trajectory_source: trajectoryPose_tcp
+  trajectory_min_dims: 6
+
+zarr:
+  output_format: zip
+  image_compressor: blosc
+
+parallel:
+  zarr_workers: 64
+  zarr_opencv_threads: 1
+  zarr_blosc_threads: 1
+  zarr_image_batch_size: 32
+  zarr_max_inflight_tasks: 128

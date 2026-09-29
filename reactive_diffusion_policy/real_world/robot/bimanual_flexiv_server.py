@@ -1,0 +1,238 @@
+# bimanual_flexiv_server_franka_adapted.py
+import sys
+sys.path.append("/home/ps/reactive_diffusion_policy")
+
+import threading
+from typing import List, Dict, Optional
+
+import numpy as np
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
+from pydantic import BaseModel
+from spatialmath import SE3
+import time
+
+from reactive_diffusion_policy.common.data_models import BimanualRobotStates, TargetTCPRequest, MoveGripperRequest, GraspGripperRequest
+# from single_flexiv_controller import FlexivController
+from reactive_diffusion_policy.real_world.robot.single_flexiv_controller import FlexivController
+# from reactive_diffusion_policy.real_world.robot.umi_controller import FlexivController
+# from reactive_diffusion_policy.real_world.robot.gripper_controller import GripperController
+from reactive_diffusion_policy.real_world.robot.gripper_controller_1011 import GripperController
+# from reactive_diffusion_policy.real_world.robot.gripper_controller_map import GripperController
+# from gripper_control import GripperController
+
+class BimanualFlexivServer:
+    def __init__(self,
+                 host_ip: str = "127.0.0.1",
+                 port: int = 8092,
+                 left_robot_cfg: str = "charmander.yml",
+                 gripper_config: Dict = {
+                        "mode": "single",
+                        "port1": "/dev/ttyACM2",
+                        "motor1_id": 2,
+                 },
+                #  left_gripper_port: Optional[str] = None,
+                #  left_gripper_id: int = 1,
+                #  right_robot_cfg: str = "panda_right.yml"
+                 ) -> None:
+        self.host_ip = host_ip
+        self.port = port
+        # self.left_gripper = None
+
+        logger.info("Initializing Left Robot (using Franka/deoxys controller)...")
+
+        self.left_robot = FlexivController(interface_cfg=left_robot_cfg, gripper_config=gripper_config)
+        # self.left_gripper = GripperController(motor_port=left_gripper_port, motor_id=left_gripper_id)
+
+        # self.left_robot.reset_to_home()
+        # logger.info("Robot(s) have been reset.")
+        # time.sleep(1.0)
+        # self.left_robot._start_control_thread()
+        
+        # logger.info("Initializing Right Robot (using Franka/deoxys controller)...")
+        # self.right_robot = FlexivController(interface_cfg=right_robot_cfg)
+
+        # logger.info("Resetting both robots to home position...")
+        # thread_left = threading.Thread(target=self.left_robot.reset_to_home)
+        # # thread_right = threading.Thread(target=self.right_robot.reset_to_home)
+        # thread_left.start()
+        # # thread_right.start()
+        # thread_left.join()
+        # # thread_right.join()
+        # logger.info("Both robots have been reset.")
+        
+        self.app = FastAPI(on_shutdown=[self.shutdown])
+        
+        self.app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_methods=["*"],
+            allow_headers=["*"],        # Content-Type/Authorization 等
+            allow_credentials=False,    # 若改为 True，必须把 allow_origins 换成具体列表
+            expose_headers=["*"],
+            max_age=86400,              # 预检结果缓存一天
+        )
+
+        self.setup_routes()
+
+    def shutdown(self):
+        logger.info("Closing robot interfaces...")
+        self.left_robot.close()
+        # self.right_robot.close()
+        logger.info("Robot interfaces closed.")
+
+    def get_robot(self, robot_side: str) -> FlexivController:
+        if robot_side == 'left':
+            return self.left_robot
+        # if self.left_gripper: 
+        #     self.left_gripper.shutdown()
+        # elif robot_side == 'right':
+        #     return self.right_robot
+        raise HTTPException(status_code=400, detail="Invalid robot side. Use 'left' or 'right'.")
+
+    # def get_gripper(self, robot_side: str) -> GripperController:
+    #     """根据传入的边获取对应的夹爪控制器实例"""
+    #     if robot_side == 'left':
+    #         if self.left_gripper: return self.left_gripper
+    #         raise HTTPException(status_code=500, detail="Left gripper is not initialized.")
+    #     # elif robot_side == 'right':
+    #     #     if self.right_gripper: return self.right_gripper
+    #     #     raise HTTPException(status_code=500, detail="Right gripper is not initialized.")
+    #     raise HTTPException(status_code=400, detail="Invalid robot side. Use 'left'.")
+
+
+    def setup_routes(self):
+        @self.app.get('/get_current_robot_states', response_model=BimanualRobotStates)
+        async def get_current_robot_states() -> BimanualRobotStates:
+            # def get_states(robot: FlexivController):
+            #     return robot.get_current_pose(), robot.get_current_q()
+
+            # left_pose, left_q = await run_in_threadpool(get_states, self.left_robot)
+            # # right_pose, right_q = await run_in_threadpool(get_states, self.right_robot)
+
+            def get_states(robot: FlexivController):
+                return robot.get_current_robot_states()
+
+            left_robot_states = await run_in_threadpool(get_states, self.left_robot)
+
+            return BimanualRobotStates(
+                leftRobotTCP=left_robot_states["leftRobotTCP"],
+                # rightRobotTCP=right_pose.tolist(),
+                leftRobotTCPVel=left_robot_states["leftRobotTCPVel"],
+                leftRobotTCPWrench=left_robot_states["leftRobotTCPWrench"],
+                leftGripperState=left_robot_states["leftGripperState"],
+                leftRobotTCPTarget=left_robot_states["leftRobotTCPTarget"],
+                leftJoinStates=left_robot_states["leftJoinStates"]
+                # leftRobotQ=left_q
+                # rightRobotQ=right_q
+            )
+
+        @self.app.post('/move_tcp/{robot_side}')
+        async def move_tcp(robot_side: str, request: TargetTCPRequest) -> Dict[str, str]:
+            robot = self.get_robot(robot_side)
+            # target_pose_se3 = SE3(np.array(request.target_tcp_matrix))
+            # target_pose_se3 = SE3(np.array(request.target_tcp_matrix), check=False)
+            
+            # await run_in_threadpool(robot.tcp_move, goal_pose=request.target_tcp)
+            await run_in_threadpool(robot.tcp_move_v3, goal_pose=request.target_tcp)
+            # await run_in_threadpool(robot.tcp_move_v3_relative, goal_pose=request.target_tcp)
+
+            return {"message": f"{robot_side.capitalize()} robot finished moving to target tcp."}
+
+        @self.app.get('/get_current_tcp/{robot_side}')
+        async def get_current_tcp(robot_side: str) -> List[List[float]]:
+            robot = self.get_robot(robot_side)
+            pose = await run_in_threadpool(robot.get_current_pose)
+            return pose.tolist()
+
+        @self.app.post('/birobot_go_home')
+        async def birobot_go_home() -> Dict[str, str]:
+            thread_left = threading.Thread(target=self.left_robot.reset_to_home)
+            # thread_right = threading.Thread(target=self.right_robot.reset_to_home)
+            thread_left.start()
+            # thread_right.start()
+            thread_left.join()
+            # thread_right.join()
+            return {"message": "Bimanual robots have gone home."}
+
+        @self.app.post('/move_gripper/{robot_side}')
+        async def move_gripper(robot_side: str, request: MoveGripperRequest) -> Dict[str, str]:
+            if robot_side == "left":
+                # robot_gripper = self.get_gripper(robot_side)
+                robot_controller = self.get_robot(robot_side)
+                # await run_in_threadpool(robot_gripper.move_gripper, request.width, request.force_limit)
+                await run_in_threadpool(robot_controller.gripper_controller.move_gripper, request.width, request.force_limit)
+                return {
+                    "message": f"{robot_side.capitalize()} gripper moving to width {request.width} "
+                            f"with force limit {request.force_limit}"}
+            else:
+                return {
+                    "message": f"Action for '{robot_side}' gripper is ignored. Only 'left' is handled."
+                }
+        @self.app.post('/move_gripper_force/{robot_side}')
+        # async def move_gripper_force(robot_side: str, request: GraspGripperRequest) -> Dict[str, str]:
+        async def move_gripper(robot_side: str, request: MoveGripperRequest) -> Dict[str, str]:
+            if robot_side == "left":
+                # robot_gripper = self.get_gripper(robot_side)
+                robot_controller = self.get_robot(robot_side)
+                # await run_in_threadpool(robot_gripper.move_gripper_force, request.force_limit)
+                # await run_in_threadpool(robot_controller.gripper_controller.move_gripper_force, request.force_limit)
+                await run_in_threadpool(robot_controller.gripper_controller.move_gripper, request.width, request.force_limit)
+                return {
+                    "message": f"{robot_side.capitalize()} gripper grasp with force limit {request.force_limit}"}
+            else:
+                return {
+                    "message": f"Action for '{robot_side}' gripper is ignored. Only 'left' is handled."
+                }
+        
+        # @self.app.get('/get_current_gripper_states/{robot_side}')
+        # async def get_current_gripper_states(robot_side: str) -> Dict[str, float]:
+        #     """
+        #     通过API获取指定一侧夹爪的当前宽度和力。
+        #     """
+        #     if robot_side == "left":
+        #         def _get_states() -> Dict[str, float]:
+        #             robot_gripper = self.get_gripper(robot_side)
+        #             width = robot_gripper.get_current_gripper_width()
+        #             force = robot_gripper.get_current_gripper_force()
+        #             return [width, force]
+
+        #         gripper_states = await run_in_threadpool(_get_states)
+        #         return gripper_states
+        #     else:
+        #         raise HTTPException(
+        #             status_code=404, 
+        #             detail=f"Gripper '{robot_side}' not found. Only 'left' is available."
+        #         )
+
+        @self.app.post('/stop_gripper/{robot_side}')
+        async def stop_gripper(robot_side: str) -> Dict[str, str]:
+            if robot_side == "left":
+                # robot_gripper = self.get_gripper(robot_side)
+                robot_controller = self.get_robot(robot_side)
+                await run_in_threadpool(robot_controller.gripper_controller.stop_gripper)
+                return {"message": f"{robot_side.capitalize()} gripper stopping"}
+            else:
+                return {
+                    "message": f"Action for '{robot_side}' gripper is ignored. Only 'left' is handled."
+                }
+
+    def run(self):
+        logger.info(f"Start Bimanual Robot Fast-API Server at http://{self.host_ip}:{self.port}")
+        # uvicorn.run(self.app, host=self.host_ip, port=self.port, log_level="info")
+        uvicorn.run(self.app, host=self.host_ip, port=self.port, access_log=False)  
+
+
+def main():
+    # robot_server = BimanualFlexivServer(left_robot_cfg="charmander.yml",
+    #                                     right_robot_cfg="charmander_right.yml")
+    robot_server = BimanualFlexivServer(
+        left_robot_cfg="charmander.yml"
+    )
+    robot_server.run()
+
+if __name__ == "__main__":
+    main()

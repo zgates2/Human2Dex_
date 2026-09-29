@@ -1,0 +1,11 @@
+package exlcm;
+struct franka_state_t
+{
+    int64_t  timestamp_ns;
+    double   q[7];
+    double   q_d[7];
+    double   K_F_ext_hat_K[6];
+    double   O_F_ext_hat_K[6];
+    double   O_T_EE[16];
+    double   O_T_EE_d[16];
+}

@@ -1,0 +1,84 @@
+<mujoco model="linker_o6_right_v1.0_urdf">
+  <compiler angle="radian"/>
+
+  <asset>
+    <mesh name="hand_base_link" file="meshes/hand_base_link.STL"/>
+    <mesh name="thumb_metacarpals_base2" file="meshes/thumb_metacarpals_base2.STL"/>
+    <mesh name="thumb_metacarpals" file="meshes/thumb_metacarpals.STL"/>
+    <mesh name="thumb_distal" file="meshes/thumb_distal.STL"/>
+    <mesh name="index_proximal" file="meshes/index_proximal.STL"/>
+    <mesh name="index_distal" file="meshes/index_distal.STL"/>
+    <mesh name="middle_proximal" file="meshes/middle_proximal.STL"/>
+    <mesh name="middle_distal" file="meshes/middle_distal.STL"/>
+    <mesh name="ring_proximal" file="meshes/ring_proximal.STL"/>
+    <mesh name="ring_distal" file="meshes/ring_distal.STL"/>
+    <mesh name="pinky_proximal" file="meshes/pinky_proximal.STL"/>
+    <mesh name="pinky_distal" file="meshes/pinky_distal.STL"/>
+  </asset>
+
+  <worldbody>
+    <geom quat="-1.64085e-08 -1.64085e-08 0.707107 -0.707107" type="mesh" rgba="1 0.6 0 1" mesh="hand_base_link"/>
+    <body name="thumb_metacarpals_base2" pos="-0.011508 -0.032794 -0.022975" quat="-1.64085e-08 -1.64085e-08 0.707107 -0.707107">
+      <inertial pos="0.00162796 0.00276672 -0.00184228" quat="0.958658 0.114191 -0.0354615 -0.258221" mass="0.00138591" diaginertia="5.49427e-08 4.70357e-08 2.7769e-08"/>
+      <joint name="thumb_cmc_yaw" pos="0 0 0" axis="0 0 -1" range="0 1.36" actuatorfrcrange="-100 100" damping="0.05"/>
+      <geom type="mesh" rgba="0.164706 0.282353 0.443137 1" mesh="thumb_metacarpals_base2"/>
+      <body name="thumb_metacarpals" pos="0.0061649 0.010678 -0.004891" quat="0.4192 -0.472029 -0.272524 -0.726079">
+        <inertial pos="4.24921e-05 -1.67886e-05 0.0228342" quat="0.687228 -0.164922 -0.164643 0.688049" mass="0.0123382" diaginertia="1.76758e-06 1.16101e-06 8.78264e-07"/>
+        <joint name="thumb_cmc_pitch" pos="0 0 0" axis="0 1 0" range="0 0.58" actuatorfrcrange="-100 100" damping="0.05"/>
+        <geom type="mesh" rgba="1 0.6 0 1" mesh="thumb_metacarpals"/>
+        <body name="thumb_distal" pos="0.0037776 0 0.045368">
+          <inertial pos="-0.00413637 -4.54783e-07 0.0230126" quat="0.999399 9.11801e-06 -0.0346753 -8.16376e-06" mass="0.00763403" diaginertia="1.31095e-06 1.22508e-06 2.72337e-07"/>
+          <joint name="thumb_ip" pos="0 0 0" axis="0 1 0" range="0 1.08" actuatorfrcrange="-100 100" damping="0.05"/>
+          <geom type="mesh" rgba="0.792157 0.792157 0.792157 1" mesh="thumb_distal"/>
+        </body>
+      </body>
+    </body>
+    <body name="index_proximal" pos="-0.0024758 -0.098779 -0.02419" quat="-1.68324e-08 -1.59733e-08 0.725374 -0.688355">
+      <inertial pos="-0.00208666 -4.8965e-06 0.0172737" quat="0.993795 0.000369213 -0.111225 0.0007939" mass="0.00253179" diaginertia="2.75761e-07 2.72916e-07 7.58316e-08"/>
+      <joint name="index_mcp_pitch" pos="0 0 0" axis="0 1 0" range="0 1.6" actuatorfrcrange="-100 100" damping="0.05"/>
+      <geom type="mesh" rgba="0.980392 0.780392 0.627451 1" mesh="index_proximal"/>
+      <body name="index_distal" pos="-0.0052516 0 0.036625">
+        <inertial pos="0.00659163 -4.59855e-06 0.0194475" quat="0.977083 0.000757539 0.212801 0.00488087" mass="0.00376887" diaginertia="3.74724e-07 3.65454e-07 7.19825e-08"/>
+        <joint name="index_dip" pos="0 0 0" axis="0 1 0" range="0 1.43" actuatorfrcrange="-100 100" damping="0.05"/>
+        <geom type="mesh" rgba="0.164706 0.282353 0.443137 1" mesh="index_distal"/>
+      </body>
+    </body>
+    <body name="middle_proximal" pos="-0.00052576 -0.1027 -0.00634" quat="-1.64085e-08 -1.64085e-08 0.707107 -0.707107">
+      <inertial pos="-0.00208661 -4.93452e-06 0.0172737" quat="0.993795 0.000375852 -0.111225 0.000731327" mass="0.00253175" diaginertia="2.75761e-07 2.72915e-07 7.58309e-08"/>
+      <joint name="middle_mcp_pitch" pos="0 0 0" axis="0 1 0" range="0 1.6" actuatorfrcrange="-100 100" damping="0.05"/>
+      <geom type="mesh" rgba="0.164706 0.282353 0.443137 1" mesh="middle_proximal"/>
+      <body name="middle_distal" pos="-0.0052516 0 0.036625">
+        <inertial pos="0.00659163 -4.58736e-06 0.0194476" quat="0.977083 0.000755794 0.212802 0.00487039" mass="0.00376886" diaginertia="3.74723e-07 3.65453e-07 7.19822e-08"/>
+        <joint name="middle_dip" pos="0 0 0" axis="0 1 0" range="0 1.43" actuatorfrcrange="-100 100" damping="0.05"/>
+        <geom type="mesh" rgba="0.164706 0.282353 0.443137 1" mesh="middle_distal"/>
+      </body>
+    </body>
+    <body name="ring_proximal" pos="-0.0010258 -0.098767 0.011135" quat="-1.59733e-08 -1.68324e-08 0.688355 -0.725374">
+      <inertial pos="-0.00208654 -4.98539e-06 0.0172737" quat="0.993795 0.000384813 -0.111226 0.000649851" mass="0.00253171" diaginertia="2.7576e-07 2.72915e-07 7.58301e-08"/>
+      <joint name="ring_mcp_pitch" pos="0 0 0" axis="0 1 0" range="0 1.6" actuatorfrcrange="-100 100" damping="0.05"/>
+      <geom type="mesh" rgba="0.980392 0.780392 0.627451 1" mesh="ring_proximal"/>
+      <body name="ring_distal" pos="-0.0052516 0 0.036625">
+        <inertial pos="0.00659163 -4.56508e-06 0.0194476" quat="0.977083 0.000752444 0.212803 0.00484972" mass="0.00376884" diaginertia="3.74721e-07 3.6545e-07 7.19814e-08"/>
+        <joint name="ring_dip" pos="0 0 0" axis="0 1 0" range="0 1.43" actuatorfrcrange="-100 100" damping="0.05"/>
+        <geom type="mesh" rgba="0.164706 0.282353 0.443137 1" mesh="ring_distal"/>
+      </body>
+    </body>
+    <body name="pinky_proximal" pos="-0.0024758 -0.092741 0.028372" quat="-1.56771e-08 -1.71086e-08 0.67559 -0.737277">
+      <inertial pos="-0.00208649 -5.02315e-06 0.0172737" quat="0.993795 0.0003914 -0.111226 0.000590247" mass="0.00253167" diaginertia="2.7576e-07 2.72914e-07 7.58294e-08"/>
+      <joint name="pinky_mcp_pitch" pos="0 0 0" axis="0 1 0" range="0 1.6" actuatorfrcrange="-100 100" damping="0.05"/>
+      <geom type="mesh" rgba="0.980392 0.780392 0.627451 1" mesh="pinky_proximal"/>
+      <body name="pinky_distal" pos="-0.0052516 0 0.036625">
+        <inertial pos="0.00659164 -4.55148e-06 0.0194477" quat="0.977083 0.000750475 0.212804 0.00483666" mass="0.00376883" diaginertia="3.7472e-07 3.65449e-07 7.19808e-08"/>
+        <joint name="pinky_dip" pos="0 0 0" axis="0 1 0" range="0 1.43" actuatorfrcrange="-100 100" damping="0.05"/>
+        <geom type="mesh" rgba="0.164706 0.282353 0.443137 1" mesh="pinky_distal"/>
+      </body>
+    </body>
+  </worldbody>
+  <equality>
+    <joint joint1="thumb_ip" joint2="thumb_cmc_pitch" polycoef="0.0 1.86 0 0 0"/>
+    <joint joint1="index_dip" joint2="index_mcp_pitch" polycoef="0.0 0.89 0 0 0"/>
+    <joint joint1="middle_dip" joint2="middle_mcp_pitch" polycoef="0.0 0.89 0 0 0"/>
+    <joint joint1="ring_dip" joint2="ring_mcp_pitch" polycoef="0.0 0.89 0 0 0"/>
+    <joint joint1="pinky_dip" joint2="pinky_mcp_pitch" polycoef="0.0 0.89 0 0 0"/>
+  </equality>
+</mujoco>

@@ -1,0 +1,75 @@
+# Fast canteen_water no-object pipeline that reuses existing base_enriched and
+# hand-mask outputs, regenerates appearance images without wrist skeleton
+# overlays, then builds both O6 and Wuji Zarr.
+
+runtime:
+  repo_root: /home/zjc/Desktop/human2dex
+  python: /share/project/liyuanyuan/anaconda3/envs/sam3/bin/python
+  data_scaling_laws_root: /home/zjc/Desktop/human2dex
+
+paths:
+  raw_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/canteen_water
+  # Reuse these existing stage-01/04 outputs from canteen_water_no_object_tcp_v1.
+  base_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/pipeline_no_object_v1/base_enriched_v1
+  hand_masks_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/pipeline_no_object_v1/sam3_hand_masks_v1
+  masks_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/pipeline_no_object_v1/sam3_hand_masks_v1
+  # Fresh no-skeleton derived outputs.
+  appearance_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/pipeline_no_object_no_skeleton_v1/appearance_single_view_v1
+  appearance_qc_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/pipeline_no_object_no_skeleton_v1/appearance_single_view_v1_qc
+  o6_zarr_root: /share/project/liyuanyuan/data/dexglove_data/dex_data/linker_o6/canteen_water_no_object_single_view_tcp_no_skeleton_v1
+  wuji_zarr_root: /share/project/liyuanyuan/data/dexglove_data/dex_data/wuji/canteen_water_no_object_single_view_tcp_no_skeleton_v1
+
+reuse:
+  wrist_fusion: true
+  grasp_pocket: true
+  hand_masks: true
+
+trajectory:
+  backfill_tcp: false
+
+upstream:
+  sam3_config: /home/zjc/Desktop/human2dex/glove_aug_pipeline/01_generate_sam3_masks.yaml
+  appearance_config: /home/zjc/Desktop/human2dex/glove_aug_pipeline/02_augment_dataset.yaml
+
+models:
+  stage2_checkpoint: /home/zjc/Desktop/human2dex/wrist/outputs/test_3/runs/stage2_mano_onestage_v1/checkpoints/best.pt
+  wrist_projection_head_checkpoint: /home/zjc/Desktop/human2dex/wrist/outputs/stage2_projection_head_residual2d/proj_head_mano21_residual2d_grouped_20260730_200049/checkpoints/best.pt
+  pocket_head_checkpoint: /home/zjc/Desktop/human2dex/wrist/outputs/grasp_pocket_head/grasp_pocket_direct_v1/checkpoints/best.pt
+
+streams:
+  image_subdirs: [images]
+
+fields:
+  source_image: rgbImage
+
+appearance:
+  variants: 3
+  episode_suffix: _app_aug
+  seed: 20260815
+  jpeg_quality: 95
+  qc_frames: 8
+
+skeleton:
+  enabled: false
+
+labels:
+  o6_action_field: fused_o6_command
+  wuji_action_field: fused_wuji_command
+  trajectory_field: trajectoryPose_tcp
+  trajectory_source: trajectoryPose_tcp
+  trajectory_min_dims: 6
+  skip_wuji: false
+
+zarr:
+  output_format: zip
+  image_compressor: blosc
+
+parallel:
+  appearance_workers: 32
+  appearance_io_workers: 2
+  appearance_mp_start_method: fork
+  zarr_workers: 64
+  zarr_opencv_threads: 1
+  zarr_blosc_threads: 1
+  zarr_image_batch_size: 32
+  zarr_max_inflight_tasks: 128

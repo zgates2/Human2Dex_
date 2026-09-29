@@ -1,0 +1,21 @@
+{
+  "name": "grasp_pocket_v1",
+  "version": 1,
+  "description": "O6 functional grasp-pocket anchor, slightly biased toward the thumb/index side.",
+  "formula": "palm_center + a * palm_width * palm_normal + b * palm_width * finger_forward",
+  "a": 0.657647381181536,
+  "b": 0.47029222572866813,
+  "normal_sign": -1,
+  "state_field": "o6_measured_state",
+  "camera_mount_id": "mvs_DA9057801_o6_mount_v1",
+  "calibration": "/home/zjc/Desktop/human2dex/data_local/o6_camera_calibration/mvs_DA9057801_o6_mount_v1/fit_ep0003_v1/camera_from_o6_base.json",
+  "fit_source": "/home/zjc/Desktop/human2dex/data_local/o6_grasp_pocket_overlay/ep0092_clicks.json",
+  "fit_metrics": {
+    "n": 10,
+    "median_px": 8.4231,
+    "p90_px": 14.4683,
+    "max_px": 15.2713
+  },
+  "status": "accepted_for_offline_cross_episode_validation",
+  "physical_grasp_success_proven": false
+}

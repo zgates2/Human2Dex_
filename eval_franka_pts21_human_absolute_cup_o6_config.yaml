@@ -1,0 +1,297 @@
+# Franka + 21x3 MANO/mono 关键点灵巧手推理配置文件
+
+# 模型与输出
+#linker_o6
+# sponge
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_6_mix_5/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_sponge_new_raw_no_processing/epoch0300.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_sponge_new_sponge_object_pocket_single_view_skeleton_tcp_v1/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_sponge_new_sponge_object_pocket_single_view_skeleton_tcp_hand_delta_aux_v2/epoch0300.ckpt
+# bread
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_bread_tcp/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_bread_croissant_object_pocket_single_view_skeleton_tcp_v1/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_bread_croissant_object_pocket_single_view_skeleton_tcp_hand_delta_v2/epoch0200.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_bread_new_raw_no_processing/epoch0300.ckpt
+# cube
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_cube_cam_v2_wight_tcp/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_cube_human2dex_gl_skeleton_tcp/epoch0250.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_cube_blue_cube_pocket_single_view_skeleton_tcp/epoch0300.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_cube_blue_cube_pocket_single_view_skeleton_tcp_hand_delta_v2/epoch0350.ckpt
+# cup
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/cup_in_cup_green_red_cup_pocket_single_view_skeleton_tcp_v1/latest.ckpt
+checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/cup_in_cup_green_red_cup_human_absolute_v1/epoch0300.ckpt
+# bottom
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/lift_bottom_plastic_water_bottle_object_pocket_single_view_skeleton_tcp_hand_delta_aux_v1/epoch0200.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/lift_bottom_raw_no_processing/epoch0300.ckpt
+# open_drawer
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/open_drawer_no_object_single_view_skeleton_tcp_v1/epoch0400.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/open_drawer_no_object_single_view_skeletoRn_tcp_tail_quarter_v1/epoch0500.ckpt
+# Egg_Carton
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/Egg_Carton_no_object_single_view_skeleton_tcp_v1/epoch0350.ckpt
+# flower_in_vase
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/flower_in_vase_tulip_flower_object_pocket_single_view_skeleton_tcp_v1/epoch0400.ckp
+# canteen_water
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/canteen_water_no_object_single_view_tcp_no_skeleton_tail150_tail50_gt500_extra100_v1/epoch0250.ckpt
+
+# wuji_hand
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/wuji/pick_sponge_new_sponge_object_pocket_single_view_skeleton_tcp_v1/epoch0200.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/wuji/cup_in_cup_green_red_cup_pocket_single_view_skeleton_tcp_v1/epoch0250.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/wuji/cup_in_cup_raw_no_processing/epoch0300.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/wuji/pick_bread_tcp_fused/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/wuji/pick_bread_new_croissant_object_pocket_single_view_skeleton_tcp_v1/epoch0500.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/wuji/pick_bread_new_raw_no_processing/epoch0300.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/wuji/pick_cube_fused_gripper/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/wuji/open_drawer_no_object_single_view_skeleton_tcp_tail_quarter_v1/epoch0500.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/wuji/open_drawer_raw_no_processing/epoch0300.ckpt 错误实际为linker的
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/wuji/lift_bottom_plastic_water_bottle_object_pocket_single_view_skeleton_tcp_v1/epoch0200.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/wuji/lift_bottom_raw_no_processing/epoch0300.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/wuji/Egg_Carton_no_object_single_view_skeleton_tcp_v1/epoch0300.ckpt
+
+
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/pts21/cup_in_cup_green_red_cup_pocket_single_view_skeleton_tcp_pts21_v1/epoch0260.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/pts21/pick_bread_new_croissant_object_pocket_single_view_skeleton_tcp_pts21_v1/epoch0200.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/pts21/pick_cube_object_pocket_single_view_skeleton_tcp_v2_pts21_v1/epoch0300.ckpt
+
+output: data_local/human_absolute_cup_o6
+robot_config: example/eval_robots_config.yaml
+
+# 手部硬件选择
+# 可选: linker_o6 | wuji_hand | none
+# 原 example/eval_robots_config.yaml 中的 linker_o6.enabled / wuji_hand.enabled
+# 已合并到这里，避免同一开关存在两个来源。
+hand: linker_o6
+
+# runner 根据 hand 选择把关键点重定向为 Linker O6 或 Wuji Hand 命令。
+hand_action_mode: direct_command    # direct_command | pts21_mano
+
+# Linker O6 handCommand 顺序:
+# [thumb_cmc_pitch, thumb_cmc_yaw, index_mcp_pitch, middle_mcp_pitch, ring_mcp_pitch, pinky_mcp_pitch]。
+# O6 命令空间里 250 附近更张开、0 附近更弯曲；负偏置会让手整体更闭合。
+linker_o6:
+  command_bias:
+    enabled: false
+    values: [0, 0, 0, 0, 0, 0]
+    # values: [0, -10, 0, 20, 20, 30]
+    # values: [0, 0, -10, 8, 12 ,12] #adust bottle
+    # values: [0, 0, -5, 0, 0, 0] # flower in vase
+    # values: [0, 0, -5, 15, 0, 0]
+
+
+# auto reads hand_action_representation from the checkpoint. Old checkpoints
+# remain absolute; new hand-delta checkpoints decode against the current O6 q_meas.
+hand_command_representation: auto # auto | absolute | delta_from_current
+pts21_retarget:
+  dexumi_root: /home/zjc/Desktop/human2dex
+  worker_python: /home/zjc/miniconda3/envs/l515_mvs310/bin/python
+  worker_timeout_s: 30.0
+  hand_side: right
+  wuji_maxeval: 40
+
+# 当前 cup-in-cup Wuji checkpoint 的食指夹杯沿时略松，在发送 qpos 前给食指加弯曲偏置。
+# Wuji qpos 顺序: [thumb,index,middle,ring,pinky] x [MCP_aa,MCP_fe,PIP,DIP]。
+wuji_hand:
+  command_bias:
+    enabled: true
+    fingers:
+      # 
+      # thumb: [0.0, 0.15, 0.12, 0.12] # MCP_aa, MCP_fe, PIP, DIP cup  #cup-in-cup
+      # index: [0.0, 0.20, 0.12, 0.17] # MCP_aa, MCP_fe, PIP, DIP      cup
+
+      # bottle
+      # thumb: [0.1, 0.15, 0.1, 0.2] # MCP_aa, MCP_fe, PIP, DIP
+      # index: [0.0, 0.05, -0.03, -0.06] # MCP_aa, MCP_fe, PIP, DIP
+      # middle: [-0.1, -0.03, -0.09, -0.09] # MCP_aa, MCP_fe, PIP, DIP
+      # ring: [-0.1, -0.2, -0.1, -0.1] # MCP_aa, MCP_fe, PIP, DIP
+      # pinky: [-0.1, -0.2, -0.10, 0.0] # MCP_aa, MCP_fe, PIP, DIP
+
+      # egg carton
+      thumb: [0.10,0.20, 0.10, 0.10] # MCP_aa, MCP_fe, PIP, DIP
+      index: [0.0, 0.0, 0.20, 0.25] # MCP_aa, MCP_fe, PIP, DIP
+      middle: [0.0, 0.0, 0.0, 0.0] # MCP_aa, MCP_fe, PIP, DIP
+      ring: [0.0, 0.0, 0.0, 0.0] # MCP_aa, MCP_fe, PIP, DIP
+      pinky: [0.0, 0.0, 0.0, -0.20] # MCP_aa, MCP_fe, PIP, DIP
+
+# 推理参数
+frequency: 10              # 控制频率 Hz
+episode_record_fps: 30     # --save-episode 固定保存频率; 默认也会跟随相机 capture_fps
+steps_per_inference: 16       # 每次推理执行的步数
+# franka_neg_x_delta_gain: 1.7  # 只放大 base-x 负方向位移; 1.0 表示关闭, +x 保持原样
+# franka_neg_y_delta_gain: 1.5 # 只放大 base-y 负方向位移; 1.0 表示关闭, +y 保持原样
+# franka_z_delta_gain: 1.4      # 只放大 base-z 相对当前位移; 1.0 表示关闭, >1 上下运动都更明显
+
+franka_neg_x_delta_gain: 1.5  # 只放大 base-x 负方向位移; 1.0 表示关闭, +x 保持原样
+franka_neg_y_delta_gain: 1.5 # 只放大 base-y 负方向位移; 1.0 表示关闭, +y 保持原样
+franka_z_delta_gain: 1.6        # 只放大 base-z 相对当前位移; 1.0 表示关闭, >1 上下运动都更明显
+
+action_start_delay: 0.05       # Franka action 首个 waypoint 提前排到未来多少秒
+action_min_lead_time: 0.02     # 小于该提前量的 waypoint 会丢弃/整段重排
+wait_for_horizon: true         # 每次推理后等待本段动作执行完,避免连续清队列覆盖
+synchronize_hand_actions: true # O6/Wuji 命令按 Franka waypoint 时间戳逐点发送
+max_timesteps: 3000          # 最大时间步数
+max_duration: 60            # 最大运行时长（秒），null 表示无限制
+
+# 运动速度限制
+max_pos_speed: 0.06       # 最大线速度 m/s
+max_rot_speed: 0.3        # 最大角速度 rad/s
+
+# 初始化
+init_joints: true           # 是否在开始前初始化关节位置
+
+# 调试/干跑模式（不实际执行硬件）
+dry_run_franka: false        # Franka 干跑（不发送指令）
+dry_run_hand: false          # 手部干跑（O6/Wuji 都不发送指令；脚本仍兼容旧 dry_run_o6）
+
+# 部署侧视觉骨架叠图。默认关闭；只有训练过“骨架RGB”的权重才能打开。
+skeleton_overlay:
+  enabled: true
+  hand: linker_o6     # linker_o6  | wuji_hand
+
+  calibration: /home/zjc/Desktop/human2dex/data_local/o6_camera_calibration/mvs_DA9057802_o6_mount_v1/fit_retry1/camera_from_o6_base.json
+  # calibration: /home/zjc/Desktop/human2dex/data_local/wuji_camera_calibration/mvs_DA9057802_wuji_mount_v1/fit_20260814_231759/camera_from_wuji_base.json #wuji_v4
+
+  # calibration: /home/zjc/Desktop/human2dex/data_local/o6_camera_calibration/mvs_DA9057802_o6_mount_v1/fit_20260812_004148/camera_from_o6_base.json  #linker_o6_v3
+  # calibration: /home/zjc/Desktop/human2dex/data_local/o6_camera_calibration/mvs_DA9057802_o6_mount_v1/fit_20260809_201231/camera_from_o6_base.json
+  # calibration: /home/zjc/Desktop/human2dex/data_local/o6_camera_calibration/mvs_DA9057802_o6_mount_v1/fit_retry1/camera_from_o6_base.json
+  # calibration: /home/zjc/Desktop/human2dex/data_local/o6_camera_calibration/mvs_DA9057801_o6_mount_v1/fit_ep0003_v1/camera_from_o6_base.json
+  rgb_keys: [camera0_rgb]
+  draw_wrist: true
+  line_thickness: 1
+  point_radius: 2
+  wrist_extension_ratio: 0.85
+
+# 实时任务物体观测，服务于使用 objectPocketObs 训练的 checkpoint。
+# SAM3 在独立 sam3 conda worker 中低频运行，主 umi204 控制进程只读取最近一次结果。
+# 语义与当前面包训练数据一致：
+# croissant_bread[dx, dy, log(area/reference_area), confidence, memory_valid]。
+
+#------------------------SINGLE----------------------------------#
+# object_pocket_obs:
+#   enabled: true
+#   source_rgb_key: camera0_rgb
+#   output_key: objectPocketObs
+#   worker_python: /home/zjc/miniconda3/envs/sam3/bin/python
+#   sam3_code: /home/zjc/Desktop/human2dex/sam/sam3-code
+#   checkpoint: /home/zjc/Desktop/human2dex/sam/sam3/sam3.pt
+#   version: sam3
+#   device: 0
+#   compile: true
+#   tracker_hz: 4.0
+#   min_confidence: 0.25
+#   pocket_confidence_cap: 0.78149515 # 训练侧 confidence=min(SAM3衰减值, 人手pocket置信度)。部署的 O6 pocket
+
+#   prompt: bread         #  blue cube | sponge | plastic water bottle | croissant | tulip flower
+#   min_area: 12
+#   max_area_ratio: 0.35
+#   reference_scale_px: 27.5372878516  # 训练侧在 480x480 上得到 reference_area=3482 px^2、 # reference_scale=sqrt(3482)=59.0085 px。部署 SAM3 输入是同画面的
+#   reference_area_px2: 758.3022222222 # 224x224 等比缩放，因此长度乘 224/480，面积乘 (224/480)^2。
+#   confidence_tau_seconds: 1.0
+#   log_area_clip: 4.0 # 没有预测置信度，使用训练集有效 pocket 置信度中位数作为固定上限。
+
+
+#------------------------双物体----------------------------------#
+object_pocket_obs:
+  enabled: true
+  reference_mode: image_center
+  source_rgb_key: camera0_rgb
+  output_key: objectAbsoluteObs
+  reference_image_size: [480, 480]
+  reference_scale_space: policy
+  reference_area_space: policy
+  worker_python: /home/zjc/miniconda3/envs/sam3/bin/python
+  sam3_code: /home/zjc/Desktop/human2dex/sam/sam3-code
+  checkpoint: /home/zjc/Desktop/human2dex/sam/sam3/sam3.pt
+  version: sam3
+  device: 0
+  compile: false
+  tracker_hz: 4.0
+  combine_pocket_confidence: true
+  objects:
+    - name: green_disposable_plastic_cup
+      prompt: green disposable plastic cup
+      min_confidence: 0.25
+      min_area: 12
+      max_area_ratio: 0.35
+      reference_scale_px: 27.4580892756
+      reference_area_px2: 753.9466666667
+      confidence_tau_seconds: 1.0
+      pocket_confidence_cap: 0.76277795
+      log_area_clip: 4.0
+    - name: red_disposable_plastic_cup
+      prompt: red disposable plastic cup
+      min_confidence: 0.25
+      min_area: 12
+      max_area_ratio: 0.35
+      reference_scale_px: 23.1082476859
+      reference_area_px2: 533.9911111111
+      confidence_tau_seconds: 1.0
+      pocket_confidence_cap: 0.76277795
+      log_area_clip: 4.0
+  calibration: /home/zjc/Desktop/human2dex/data_local/o6_camera_calibration/mvs_DA9057802_o6_mount_v1/fit_retry1/camera_from_o6_base.json
+  grasp_pocket_config: /home/zjc/Desktop/human2dex/configs/grasp_pocket_v1.json
+
+# 双视角夹取对齐输入。策略仅接收几何统一后的宽视角 G 和近场视角 L，
+# 不接收未经对齐的原始鱼眼 RGB。旧 checkpoint 缺少 camera0_local_rgb 时不可开启。
+canonical_views:
+  enabled: false
+  hand: linker_o6
+  calibration: /home/zjc/Desktop/human2dex/data_local/o6_camera_calibration/mvs_DA9057802_o6_mount_v1/fit_retry1/camera_from_o6_base.json
+  # calibration: /home/zjc/Desktop/human2dex/data_local/o6_camera_calibration/mvs_DA9057801_o6_mount_v1/fit_ep0003_v1/camera_from_o6_base.json
+  grasp_pocket_config: /home/zjc/Desktop/human2dex/configs/grasp_pocket_v1.json
+  source_rgb_key: camera0_rgb
+  global_output_key: camera0_rgb
+  local_output_key: camera0_local_rgb
+  ema_alpha: 0.3
+  # Kept for config compatibility. Current G is a full-image translation with
+  # black padding; L uses the configured angular local view below.
+  fixed_roll_deg: -10.0
+  global:
+    output_size: [224, 224]
+    # 空腔置于画面上方，保留其前方的目标、桌面和运输区域。
+    anchor_uv_ratio: [0.5, 0.40]
+    # 当前 G 不做窄视角重投影，只把完整鱼眼图平移到该 anchor。
+    palm_across_sign: 1.0
+    roll_mode: camera
+    border_mode: constant
+  local:
+    output_size: [224, 224]
+    # L is centered on the grasp pocket; this must not inherit G's y=0.35 anchor.
+    anchor_uv_ratio: [0.60, 0.35]
+    # Fixed angular local view centered on the grasp pocket.
+    mode: angular             # metric_palm |  angular
+    fov_deg: 82.0
+    width_in_palm: 2.5
+    height_in_palm: 2.5
+    rotation_deg: 0.0
+    border_mode: reflect101
+
+# 部署端图像平面空腔中心对齐。默认关闭；启用时必须重新标定并填写
+# deployment O6 空腔中心，例如:
+#   --view-align --view-deploy-center 116,101 --view-scale 0.95
+view_alignment:
+  enabled: false
+  transform_type: cavity_center
+  rgb_keys: [camera0_rgb]
+  # 训练端参考图:
+  # /home/zjc/Desktop/human2dex/data/pick_cube/episode_0127/images/episode_0127_rgb_000112.jpg
+  train_center_px: [189.0, 163.0]
+  train_image_size: [480, 480]
+  # TODO: 部署前重新标定部署端 O6 空腔中心，并通过
+  # --view-deploy-center x,y 覆盖。
+  deploy_center_px: [80,89]
+  scale: 0.95
+  circle_mode: fixed_source
+  circle_threshold: 2.0
+  circle_margin_px: 0.0
+  reflect_inner_margin_px: 18.0
+  border_mode: reflect101
+
+# 相机设置（与 robot_config.yaml 一致）
+# 若 robot_config 已定义相机，此处可留空或覆盖
+# camera_realsense_uids: []
+
+# 动作维度说明：
+# 10D: pose10d(9) + gripper(1)          -- 标准 UMI checkpoint
+# 15D: pose10d(9) + O6 handCommand(6)   -- 灵巧手 checkpoint
+# 20D: flattened Wuji qpos              -- Wuji checkpoint
+# 29D: pose10d(9) + Wuji qpos(20)       -- 混合 checkpoint
+# 72D: pose10d(9) + pts21_mano(21x3)    -- 本脚本运行时重定向到 O6/Wuji

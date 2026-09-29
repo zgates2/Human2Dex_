@@ -1,0 +1,50 @@
+# Camera-only config for teleop/collect_l515_mvs.py.
+# Empty out uses data/<task_name>/episode_XXXX/episode_XXXX.pkl.
+task_name: camera_test
+out:
+hz: 30.0
+cache_hz: 60.0
+duration: 100
+dry_run: false
+
+# MVS camera. Null auto-selects the first detected camera.
+mvs_serial:
+mvs_resolution: [480, 480]
+mvs_input_resolution: [1440, 1080]
+mvs_auto_crop_black_border: false
+mvs_center_crop: true
+mvs_use_sensor_crop_roi: true
+# MVS exposure is fixed by the backend (exposure_auto=off), in microseconds.
+mvs_exposure_time_us: 15000.0
+# MVS acquisition rate can be independent from the saved sample rate.
+mvs_capture_fps: 30.0
+mvs_gain_auto: "off"        # off | once | continuous
+mvs_gain_db: 6.0           # fixed gain in dB when mvs_gain_auto is off
+
+# Explicit serials are required. Both connected L515 support this common
+# RGB/depth profile on zjc.
+l515_cameras:
+  - name: external
+    serial: f1380685
+    rgb_resolution: [960, 540]
+    depth_resolution: [640, 480]
+    rgb_fps: 30
+    depth_fps: 30
+    align_to: color
+    warmup_frames: 90
+    strict_global_time: true
+    auto_exposure: true
+    auto_exposure_priority: 0.0
+    auto_white_balance: true
+  - name: ego
+    serial: f1422067
+    rgb_resolution: [960, 540]
+    depth_resolution: [640, 480]
+    rgb_fps: 30
+    depth_fps: 30
+    align_to: color
+    warmup_frames: 90
+    strict_global_time: true
+    auto_exposure: true
+    auto_exposure_priority: 0.0
+    auto_white_balance: true

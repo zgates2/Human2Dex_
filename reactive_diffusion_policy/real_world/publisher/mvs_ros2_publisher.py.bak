@@ -1,0 +1,526 @@
+#!/usr/bin/env python3
+"""
+MVS Camera ROS2 Publisher - 完全独立版本
+
+所有相机逻辑都在这个文件中，不依赖任何其他模块。
+发布话题: /fisheye_img/rgb/image_raw/compressed
+"""
+
+import sys
+import time
+from typing import Optional, Tuple
+from threading import Event, Lock, Thread
+from ctypes import *
+
+import numpy as np
+import cv2
+from loguru import logger
+
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import CompressedImage, Image
+
+MVS_SDK_PATH = "/opt/MVS/Samples/64/Python/MvImport"
+sys.path.append(MVS_SDK_PATH)
+
+try:
+    from MvCameraControl_class import *
+except ImportError:
+    logger.error("Failed to import MvCameraControl_class. Ensure the MVS SDK is installed.")
+    sys.exit(1)
+
+CAMERA_SERIAL = "DA6242414"
+# CAMERA_SERIAL = "DA9057801"
+CAMERA_NAME = "fisheye_front"
+CAMERA_FPS = 30.0
+CAMERA_WIDTH = 480
+CAMERA_HEIGHT = 480
+JPEG_QUALITY = 95
+
+AUTO_EXPOSURE = False
+# AUTO_EXPOSURE = True
+EXPOSURE_TIME = 20000
+
+
+AUTO_GAIN = True
+
+AUTO_WHITE_BALANCE = True
+
+BLACK_LEVEL_ENABLE = True
+# BLACK_LEVEL_ENABLE = False
+BLACK_LEVEL = 240
+
+# BRIGHTNESS = 5000
+BRIGHTNESS = 100
+
+ROTATE_180 = True
+
+class MVSCamera:
+    def __init__(self):
+        self.cam: Optional[MvCamera] = None
+        self.device_list: Optional[MV_CC_DEVICE_INFO_LIST] = None
+        self.device_info = None
+        self.payload_size: int = 0
+        self.out_frame = None
+
+        self.thread: Optional[Thread] = None
+        self.stop_event: Optional[Event] = None
+
+        self.frame_lock = Lock()
+        self.latest_image: Optional[np.ndarray] = None
+        self.latest_frame_id: int = 0
+        self.new_frame_event = Event()
+
+        self._connected = False
+
+    @property
+    def is_connected(self) -> bool:
+        return self._connected and self.cam is not None
+
+    def _initialize_sdk(self):
+        MvCamera.MV_CC_Initialize()
+        sdk_version = MvCamera.MV_CC_GetSDKVersion()
+        logger.info(f"MVS SDK Version: [0x{sdk_version:x}]")
+
+    def _enumerate_devices(self) -> int:
+        self.device_list = MV_CC_DEVICE_INFO_LIST()
+        layer_type = (MV_GIGE_DEVICE | MV_USB_DEVICE |
+                      MV_GENTL_CAMERALINK_DEVICE | MV_GENTL_CXP_DEVICE |
+                      MV_GENTL_XOF_DEVICE)
+
+        ret = MvCamera.MV_CC_EnumDevices(layer_type, self.device_list)
+        if ret != 0:
+            raise RuntimeError(f"Enum devices failed! ret[0x{ret:x}]")
+
+        if self.device_list.nDeviceNum == 0:
+            raise RuntimeError("No MVS device found!")
+
+        logger.info(f"Found {self.device_list.nDeviceNum} MVS device(s)")
+
+        target_index = -1
+        for i in range(self.device_list.nDeviceNum):
+            mvcc_dev_info = cast(self.device_list.pDeviceInfo[i],
+                                 POINTER(MV_CC_DEVICE_INFO)).contents
+
+            serial = ""
+            if mvcc_dev_info.nTLayerType == MV_USB_DEVICE:
+                for per in mvcc_dev_info.SpecialInfo.stUsb3VInfo.chSerialNumber:
+                    if per == 0:
+                        break
+                    serial += chr(per)
+
+                model_name = ""
+                for per in mvcc_dev_info.SpecialInfo.stUsb3VInfo.chModelName:
+                    if per == 0:
+                        break
+                    model_name += chr(per)
+                logger.info(f"  Device [{i}]: {model_name}, S/N = {serial}")
+
+            if serial == CAMERA_SERIAL:
+                target_index = i
+
+        if target_index < 0:
+            raise RuntimeError(f"Device with serial '{CAMERA_SERIAL}' not found!")
+
+        return target_index
+
+    def _connect_device(self, device_index: int):
+        self.cam = MvCamera()
+
+        self.device_info = cast(self.device_list.pDeviceInfo[device_index],
+                                POINTER(MV_CC_DEVICE_INFO)).contents
+
+        ret = self.cam.MV_CC_CreateHandle(self.device_info)
+        if ret != 0:
+            raise RuntimeError(f"Create handle failed! ret[0x{ret:x}]")
+
+        ret = self.cam.MV_CC_OpenDevice(MV_ACCESS_Exclusive, 0)
+        if ret != 0:
+            raise RuntimeError(f"Open device failed! ret[0x{ret:x}]")
+
+        if (self.device_info.nTLayerType == MV_GIGE_DEVICE or
+            self.device_info.nTLayerType == MV_GENTL_GIGE_DEVICE):
+            packet_size = self.cam.MV_CC_GetOptimalPacketSize()
+            if int(packet_size) > 0:
+                ret = self.cam.MV_CC_SetIntValue("GevSCPSPacketSize", packet_size)
+                if ret != 0:
+                    logger.warning(f"Set packet size failed! ret[0x{ret:x}]")
+
+        ret = self.cam.MV_CC_SetEnumValue("TriggerMode", MV_TRIGGER_MODE_OFF)
+        if ret != 0:
+            raise RuntimeError(f"Set trigger mode failed! ret[0x{ret:x}]")
+
+        st_param = MVCC_INTVALUE()
+        memset(byref(st_param), 0, sizeof(MVCC_INTVALUE))
+        ret = self.cam.MV_CC_GetIntValue("PayloadSize", st_param)
+        if ret != 0:
+            raise RuntimeError(f"Get payload size failed! ret[0x{ret:x}]")
+
+        self.payload_size = st_param.nCurValue
+        logger.info(f"Payload size: {self.payload_size}")
+
+    def _configure_camera(self):
+        if AUTO_EXPOSURE:
+            self.cam.MV_CC_SetEnumValue("ExposureAuto", MV_EXPOSURE_AUTO_MODE_CONTINUOUS)
+            logger.info("Exposure: Auto")
+        else:
+            self.cam.MV_CC_SetEnumValue("ExposureAuto", MV_EXPOSURE_AUTO_MODE_OFF)
+            self.cam.MV_CC_SetIntValue("ExposureTime", EXPOSURE_TIME)
+            logger.info(f"Exposure: Manual, time={EXPOSURE_TIME}us")
+
+        if AUTO_GAIN:
+            self.cam.MV_CC_SetEnumValue("GainAuto", MV_GAIN_MODE_CONTINUOUS)
+            logger.info("Gain: Auto (Continuous)")
+        else:
+            self.cam.MV_CC_SetEnumValue("GainAuto", MV_GAIN_MODE_OFF)
+            logger.info("Gain: Off")
+
+        if AUTO_WHITE_BALANCE:
+            self.cam.MV_CC_SetEnumValue("BalanceWhiteAuto", MV_BALANCEWHITE_AUTO_CONTINUOUS)
+            logger.info("White Balance: Auto (Continuous)")
+        else:
+            self.cam.MV_CC_SetEnumValue("BalanceWhiteAuto", MV_BALANCEWHITE_AUTO_OFF)
+            logger.info("White Balance: Off")
+
+        if BLACK_LEVEL_ENABLE:
+            self.cam.MV_CC_SetBoolValue("BlackLevelEnable", 1)
+            self.cam.MV_CC_SetIntValue("BlackLevel", BLACK_LEVEL)
+            logger.info(f"Black Level: Enabled, value={BLACK_LEVEL}")
+
+        self.cam.MV_CC_SetIntValue("Brightness", BRIGHTNESS)
+        logger.info(f"Brightness: {BRIGHTNESS}")
+
+    def _start_grabbing(self):
+        ret = self.cam.MV_CC_StartGrabbing()
+        if ret != 0:
+            raise RuntimeError(f"Start grabbing failed! ret[0x{ret:x}]")
+
+        self.out_frame = MV_FRAME_OUT()
+        memset(byref(self.out_frame), 0, sizeof(self.out_frame))
+
+        logger.info("Camera grabbing started")
+
+    def _read_frame_internal(self) -> Optional[np.ndarray]:
+        if self.cam is None:
+            return None
+
+        ret = self.cam.MV_CC_GetImageBuffer(self.out_frame, 1000)
+        if ret != 0:
+            logger.warning(f"Get image buffer failed! ret[0x{ret:x}]")
+            return None
+
+        try:
+            width = self.out_frame.stFrameInfo.nWidth
+            height = self.out_frame.stFrameInfo.nHeight
+            rgb_size = width * height * 3
+
+            convert_param = MV_CC_PIXEL_CONVERT_PARAM_EX()
+            memset(byref(convert_param), 0, sizeof(convert_param))
+            convert_param.nWidth = width
+            convert_param.nHeight = height
+            convert_param.pSrcData = self.out_frame.pBufAddr
+            convert_param.nSrcDataLen = self.out_frame.stFrameInfo.nFrameLen
+            convert_param.enSrcPixelType = self.out_frame.stFrameInfo.enPixelType
+            convert_param.enDstPixelType = PixelType_Gvsp_RGB8_Packed
+            convert_param.pDstBuffer = (c_ubyte * rgb_size)()
+            convert_param.nDstBufferSize = rgb_size
+
+            ret = self.cam.MV_CC_ConvertPixelTypeEx(convert_param)
+            if ret != 0:
+                logger.warning(f"Convert pixel failed! ret[0x{ret:x}]")
+                return None
+
+            frame_ptr = cast(convert_param.pDstBuffer, POINTER(c_ubyte))
+            frame_data = np.ctypeslib.as_array(frame_ptr, shape=(rgb_size,))
+            image = frame_data.reshape(height, width, 3).copy()
+
+            if width != CAMERA_WIDTH or height != CAMERA_HEIGHT:
+                image = cv2.resize(image, (CAMERA_WIDTH, CAMERA_HEIGHT),
+                                   interpolation=cv2.INTER_LINEAR)
+
+            if ROTATE_180:
+                image = cv2.rotate(image, cv2.ROTATE_180)
+
+            return image
+
+        finally:
+            self.cam.MV_CC_FreeImageBuffer(self.out_frame)
+
+    def _processing_loop(self):
+        frame_id = 0
+        logger.info(f"{CAMERA_NAME}: Background thread started")
+
+        while not self.stop_event.is_set():
+            try:
+                image = self._read_frame_internal()
+                if image is None:
+                    time.sleep(0.01)
+                    continue
+
+                frame_id += 1
+
+                with self.frame_lock:
+                    self.latest_image = image
+                    self.latest_frame_id = frame_id
+
+                self.new_frame_event.set()
+
+            except Exception as e:
+                logger.error(f"{CAMERA_NAME}: Error in processing loop: {e}")
+                time.sleep(0.1)
+
+        logger.info(f"{CAMERA_NAME}: Background thread stopped")
+
+    def _start_thread(self):
+        if self.thread is not None and self.thread.is_alive():
+            self._stop_thread()
+
+        self.stop_event = Event()
+        self.thread = Thread(
+            target=self._processing_loop,
+            name=f"{CAMERA_NAME}_processing",
+            daemon=True
+        )
+        self.thread.start()
+
+    def _stop_thread(self):
+        if self.stop_event is None:
+            return
+
+        self.stop_event.set()
+
+        if self.thread is not None and self.thread.is_alive():
+            self.thread.join(timeout=3.0)
+            if self.thread.is_alive():
+                logger.error(f"{CAMERA_NAME}: Thread did not stop gracefully!")
+
+        self.thread = None
+        self.stop_event = None
+
+    def connect(self, warmup: bool = True, warmup_time: float = 1.0):
+        if self.is_connected:
+            raise RuntimeError(f"{CAMERA_NAME} is already connected")
+
+        logger.info(f"Connecting {CAMERA_NAME} (S/N: {CAMERA_SERIAL})...")
+
+        try:
+            self._initialize_sdk()
+            device_index = self._enumerate_devices()
+            self._connect_device(device_index)
+            self._configure_camera()
+            self._start_grabbing()
+
+            if warmup:
+                logger.info(f"Warming up for {warmup_time}s...")
+                start_time = time.time()
+                while time.time() - start_time < warmup_time:
+                    self._read_frame_internal()
+                    time.sleep(0.1)
+
+            self._start_thread()
+            self._connected = True
+
+            logger.info(f"{CAMERA_NAME} connected and ready")
+
+        except Exception as e:
+            logger.error(f"Failed to connect {CAMERA_NAME}: {e}")
+            self.disconnect()
+            raise
+
+    def disconnect(self):
+        """断开相机"""
+        if not self._connected and self.cam is None:
+            return
+
+        logger.info(f"Disconnecting {CAMERA_NAME}...")
+
+        self._stop_thread()
+
+        if self.cam is not None:
+            try:
+                self.cam.MV_CC_StopGrabbing()
+                self.cam.MV_CC_CloseDevice()
+                self.cam.MV_CC_DestroyHandle()
+            except Exception as e:
+                logger.warning(f"Error during camera cleanup: {e}")
+            self.cam = None
+
+        self._connected = False
+        logger.info(f"{CAMERA_NAME} disconnected")
+
+    def read(self, timeout_ms: float = 500) -> Tuple[np.ndarray, int]:
+        if not self.is_connected:
+            raise RuntimeError(f"{CAMERA_NAME} is not connected")
+
+        self.new_frame_event.wait(timeout=timeout_ms / 1000.0)
+
+        with self.frame_lock:
+            image = self.latest_image
+            frame_id = self.latest_frame_id
+            self.new_frame_event.clear()
+
+        if image is None:
+            raise RuntimeError(f"{CAMERA_NAME}: No frame available")
+
+        return image.copy(), frame_id
+
+    def __enter__(self):
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.disconnect()
+        return False
+
+    def __del__(self):
+        try:
+            self.disconnect()
+        except:
+            pass
+
+class MVSCameraPublisher(Node):
+
+    def __init__(self, camera_name: str, camera_type: str, device_path:str ):
+        super().__init__('mvs_camera_publisher')
+
+        self.camera = MVSCamera()
+        self.camera_name = camera_name
+        self.camera_type = camera_type
+        self.device_path = device_path
+        
+        self.start()
+
+        # self.publisher = self.create_publisher(
+        #     CompressedImage,
+        #     f'/{self.camera_name}/rgb/image_raw/compressed',
+        #     10
+        # )
+        self.publisher = self.create_publisher(
+            Image,
+            f'/{self.camera_name}/rgb/image_raw',
+            10
+        )
+
+        self.timer = self.create_timer(
+            1.0 / CAMERA_FPS,
+            self._timer_callback
+        )
+
+        self.frame_count = 0
+        self.start_time = None
+
+        logger.info(f"MVS Camera Publisher initialized")
+        # logger.info(f"  Topic: /fisheye_img/rgb/image_raw/compressed")
+        logger.info(f"  Resolution: {CAMERA_WIDTH}x{CAMERA_HEIGHT}")
+        logger.info(f"  FPS: {CAMERA_FPS}")
+        logger.info(f"  JPEG Quality: {JPEG_QUALITY}")
+
+    def start(self):
+        logger.info("Starting camera...")
+        self.camera.connect(warmup=True)
+        self.start_time = time.time()
+        logger.info("Camera started, publishing images...")
+
+    def stop(self):
+        logger.info("Stopping camera...")
+        self.camera.disconnect()
+
+        if self.start_time and self.frame_count > 0:
+            elapsed = time.time() - self.start_time
+            actual_fps = self.frame_count / elapsed
+            logger.info(f"Published {self.frame_count} frames in {elapsed:.1f}s ({actual_fps:.1f} fps)")
+
+    def _timer_callback(self):
+        try:
+            image, frame_id = self.camera.read(timeout_ms=100)
+            
+            # Image to rviz2 show
+            msg = Image()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = "fisheye_camera_color_frame"
+            msg.height, msg.width, _ = image.shape
+            msg.encoding = "rgb8"
+            msg.step = msg.width * 3
+            image_bytes = image.tobytes()
+            msg.data = image_bytes
+            
+            # msg = numpy_to_image(color_image, "bgr8")
+            self.publisher.publish(msg)
+            
+
+            # Compressed Image
+            # image_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+            # encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY]
+            # success, encoded = cv2.imencode('.jpg', image_bgr, encode_param)
+
+            # if not success:
+            #     logger.warning("Failed to encode image")
+            #     return
+
+            # msg = CompressedImage()
+            # msg.header.stamp = self.get_clock().now().to_msg()
+            # msg.header.frame_id = CAMERA_NAME
+            # msg.format = 'jpeg'
+            # # msg.data = encoded.tobytes()
+            # msg.data = encoded.flatten().tolist()
+            # # msg.data = encoded.flatten.tolist()
+
+            # self.publisher.publish(msg)
+
+            # self.frame_count += 1
+
+            # if self.frame_count % 100 == 0:
+            #     elapsed = time.time() - self.start_time
+            #     actual_fps = self.frame_count / elapsed
+            #     logger.info(f"Published {self.frame_count} frames ({actual_fps:.1f} fps)")
+
+        except Exception as e:
+            logger.warning(f"Error in timer callback: {e}")
+
+def main():
+    logger.remove()
+    logger.add(sys.stderr, level="INFO")
+
+    print("=" * 80)
+    print(" " * 20 + "MVS Camera ROS2 Publisher")
+    print("=" * 80)
+    print(f"Camera Serial: {CAMERA_SERIAL}")
+    print(f"Resolution: {CAMERA_WIDTH}x{CAMERA_HEIGHT}")
+    print(f"FPS: {CAMERA_FPS}")
+    print(f"Exposure: {'Auto' if AUTO_EXPOSURE else f'Manual ({EXPOSURE_TIME}us)'}")
+    print(f"Gain: {'Auto' if AUTO_GAIN else 'Off'}")
+    print(f"White Balance: {'Auto' if AUTO_WHITE_BALANCE else 'Off'}")
+    print(f"Black Level: {BLACK_LEVEL if BLACK_LEVEL_ENABLE else 'Disabled'}")
+    print(f"Brightness: {BRIGHTNESS}")
+    print(f"Rotate 180: {ROTATE_180}")
+    print(f"JPEG Quality: {JPEG_QUALITY}")
+    print(f"Topic: /fisheye_img/rgb/image_raw/compressed")
+    print("=" * 80)
+
+    rclpy.init()
+    camera_name = "fisheye_front"
+    camera_type = "MVS"
+    device_path = "/dev/v4l/by-id"
+
+    publisher_node = MVSCameraPublisher(camera_name=camera_name, camera_type=camera_type,device_path=device_path)
+
+    try:
+        # publisher_node.start()
+        rclpy.spin(publisher_node)
+
+    except KeyboardInterrupt:
+        logger.info("Interrupted by user")
+
+    finally:
+        publisher_node.stop()
+        publisher_node.destroy_node()
+        rclpy.shutdown()
+
+    print("\n" + "=" * 80)
+    print(" " * 30 + "Done")
+    print("=" * 80)
+
+
+if __name__ == "__main__":
+    main()

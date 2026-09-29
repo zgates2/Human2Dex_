@@ -1,0 +1,122 @@
+# Rebuild pick_cube with a coloured 21-point skeleton baked into RGB before
+# G/L rendering.  It reuses all existing base fields, RGB and SAM3 masks, but
+# makes a new writable base so one projection head can refresh every frame.
+# Do not modify the original base_enriched_v1 or the original skeleton-free
+# Zarr.  Run stages 01--02, then stages 05--08.
+
+runtime:
+  repo_root: /home/zjc/Desktop/human2dex
+  python: /share/project/liyuanyuan/anaconda3/envs/sam3/bin/python
+  data_scaling_laws_root: /home/zjc/Desktop/human2dex
+
+paths:
+  # This previously enriched root is reused as the read-only source. Stage 01
+  # copies PKLs and hard-links RGB into the new base root below.
+  raw_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_cube/pipeline_human2dex_v1/base_enriched_v1
+  base_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_cube/pipeline_human2dex_v1/base_enriched_skeleton_v1
+  masks_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_cube/pipeline_human2dex_v1/sam3_masks_v1
+  appearance_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_cube/pipeline_human2dex_v1/appearance_only_skeleton_v1
+  appearance_qc_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_cube/pipeline_human2dex_v1/appearance_only_skeleton_v1_qc
+  gl_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_cube/pipeline_human2dex_v1/appearance_gl_skeleton_v1
+  qc_segments_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_cube/pipeline_human2dex_v1/qc_segments_skeleton_v1
+  o6_zarr_root: /share/project/liyuanyuan/data/dexglove_data/dex_data/linker_o6/pick_cube_human2dex_gl_skeleton_tcp_v1
+  wuji_zarr_root: /share/project/liyuanyuan/data/dexglove_data/dex_data/wuji/pick_cube_human2dex_gl_skeleton_tcp_v1
+
+upstream:
+  sam3_config: /home/zjc/Desktop/human2dex/glove_aug_pipeline/01_generate_sam3_masks.yaml
+  appearance_config: /home/zjc/Desktop/human2dex/glove_aug_pipeline/02_augment_dataset.yaml
+
+models:
+  stage2_checkpoint: /home/zjc/Desktop/human2dex/wrist/outputs/test_3/runs/stage2_mano_onestage_v1/checkpoints/best.pt
+  # One fixed projection head is applied to every frame, rather than mixing
+  # the 31,840 old projected frames with 53,347 skeleton-free frames.
+  wrist_projection_head_checkpoint: /home/zjc/Desktop/human2dex/wrist/outputs/stage2_projection_head_residual2d/proj_head_mano21_residual2d_grouped_20260730_200049/checkpoints/best.pt
+  pocket_head_checkpoint: /home/zjc/Desktop/human2dex/wrist/outputs/grasp_pocket_head/grasp_pocket_direct_v1/checkpoints/best.pt
+
+streams:
+  image_subdirs: [images]
+
+fields:
+  source_image: rgbImage
+  pocket_uv: wrist_grasp_pocket_uv
+  pocket_valid: wrist_grasp_pocket_valid
+  pocket_confidence: wrist_grasp_pocket_confidence
+  human_pocket_valid: humanGraspPocketValid
+  global_image: globalCanonicalImage
+  local_image: localCanonicalImage
+
+pocket:
+  min_confidence: 0.10
+  overwrite: false
+
+views:
+  intrinsics: /home/zjc/Desktop/human2dex/configs/human_mvs_DA9057801_480_center_roi_rotate180_provisional.yaml
+  global_size: 224x224
+  local_size: 224x224
+  global_anchor: 0.5,0.35
+  local_anchor: 0.5,0.5
+  # L matches deployment: a pocket-centred full fisheye ray reordering.
+  local_mode: anchor_wide
+  local_fov_deg: 78.0
+  global_border_mode: constant
+  local_border_mode: reflect101
+  jpeg_quality: 95
+
+appearance:
+  variants: 3
+  episode_suffix: _app_aug
+  seed: 20260606
+  jpeg_quality: 95
+  qc_frames: 8
+
+skeleton:
+  enabled: true
+  image_subdir: images
+  line_width: 2
+  point_radius: 4
+
+labels:
+  o6_action_field: fused_o6_command
+  wuji_action_field: fused_wuji_command
+  trajectory_field: trajectoryPose
+  trajectory_source: trajectoryPose_tcp
+  trajectory_min_dims: 6
+  skip_wuji: false
+
+qc:
+  min_segment_frames: 24
+  overlays_per_segment: 3
+  parent_episode_suffix_regex: "_app_aug[0-9]+$"
+
+zarr:
+  output_format: zip
+  image_compressor: blosc
+
+parallel:
+  prepare_workers: 64
+  wrist_devices: auto
+  wrist_batch_size: 128
+  wrist_loader_workers: 8
+  wrist_precision: auto
+  wrist_log_every: 5
+  fusion_workers: 32
+  pocket_devices: [0, 1, 2, 3, 4, 5, 6, 7]
+  pocket_batch_size: 128
+  pocket_loader_workers: 4
+  pocket_precision: auto
+  sam3_num_gpus: 8
+  sam3_batch_size: 32
+  sam3_prefetch: 8
+  appearance_workers: 32
+  appearance_io_workers: 2
+  appearance_mp_start_method: fork
+  gl_renderer: cuda
+  gl_devices: [0, 1, 2, 3, 4, 5, 6, 7]
+  gl_gpu_batch_size: 64
+  gl_opencv_threads: 4
+  qc_workers: 32
+  zarr_workers: 64
+  zarr_opencv_threads: 1
+  zarr_blosc_threads: 1
+  zarr_image_batch_size: 32
+  zarr_max_inflight_tasks: 128

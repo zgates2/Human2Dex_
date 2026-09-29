@@ -1,0 +1,94 @@
+# Franka + 可选灵巧手推理配置文件
+
+# 模型与输出
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_6_pro_wrist_gripper_ignore_sample3/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/cup_1_clean_ignore/epoch0250.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_6_pro/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_6_mix_5_wrist/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_6_clean_wrist_simple3/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_7_fused/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_6_clean_wrist_simple3/epoch0410.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/wuij/pick_6_mix_5/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_bread_gripper/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_bread_tcp/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_bread_eef/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_cube/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/wuji/pick_bread_tcp_fused/latest.ckpt
+# checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_bread_croissant_object_pocket_single_view_skeleton_tcp_v1/epoch0250.ckpt
+checkpoint: /home/zjc/Desktop/human2dex/ckpt/linker_o6/pick_sponge_new_sponge_object_pocket_single_view_skeleton_tcp_v1/epoch0200.ckpt
+
+output: data_local/franka_o6_eval
+robot_config: example/eval_robots_config.yaml
+
+# 手部硬件选择
+# 可选: linker_o6 | wuji_hand | none
+# 原 example/eval_robots_config.yaml 中的 linker_o6.enabled / wuji_hand.enabled
+# 已合并到这里，避免同一开关存在两个来源。
+hand: linker_o6
+
+# Linker O6 handCommand 顺序:
+# [thumb_cmc_pitch, thumb_cmc_yaw, index_mcp_pitch, middle_mcp_pitch, ring_mcp_pitch, pinky_mcp_pitch]。
+# O6 命令空间里 250 附近更张开、0 附近更弯曲；负偏置会让手整体更闭合。
+linker_o6:
+  command_bias:
+    enabled: true
+    values: [-8, -8, -8, -8, -8, -8]
+
+# 推理参数
+frequency: 10              # 控制频率 Hz
+steps_per_inference: 16       # 每次推理执行的步数
+action_start_delay: 0.05       # Franka action 首个 waypoint 提前排到未来多少秒
+action_min_lead_time: 0.02     # 小于该提前量的 waypoint 会丢弃/整段重排
+wait_for_horizon: true         # 每次推理后等待本段动作执行完,避免连续清队列覆盖
+synchronize_hand_actions: true # O6/Wuji 命令按 Franka waypoint 时间戳逐点发送
+max_timesteps: 3000          # 最大时间步数
+max_duration: 60            # 最大运行时长（秒），null 表示无限制
+
+# 运动速度限制
+max_pos_speed: 0.06       # 最大线速度 m/s
+max_rot_speed: 0.3        # 最大角速度 rad/s
+
+# 初始化
+init_joints: true           # 是否在开始前初始化关节位置
+
+# 调试/干跑模式（不实际执行硬件）
+dry_run_franka: false        # Franka 干跑（不发送指令）
+dry_run_hand: false          # 手部干跑（O6/Wuji 都不发送指令；脚本仍兼容旧 dry_run_o6）
+
+# 部署侧视觉骨架叠图。默认关闭；只有训练过“骨架RGB”的权重才能打开。
+skeleton_overlay:
+  enabled: false
+  hand: linker_o6
+  # calibration: /home/zjc/Desktop/human2dex/data_local/o6_camera_calibration/mvs_DA9057801_o6_mount_v1/fit_ep0003_v1/camera_from_o6_base.json
+  # calibration: /home/zjc/Desktop/human2dex/data_local/o6_camera_calibration/mvs_DA9057802_o6_mount_v1/fit_retry1/camera_from_o6_base.json
+  calibration: /home/zjc/Desktop/human2dex/data_local/o6_camera_calibration/mvs_DA9057802_o6_mount_v1/fit_20260812_004148/camera_from_o6_base.json
+  rgb_keys: [camera0_rgb]
+  draw_wrist: true
+  line_thickness: 1
+  point_radius: 2
+  wrist_extension_ratio: 0.85
+
+# 部署侧腕部视角对齐。默认关闭；只改变送入策略的 RGB，不改变原始录像、TCP 或动作。
+# 每个固定相机安装版本使用一组固定参数，整段 episode 内不得逐帧变化。
+view_alignment:
+  enabled: false
+  mount_id: mvs_DA9057801_o6_mount_v1
+  rgb_keys: [camera0_rgb]
+  transform_type: similarity   # similarity 或 homography
+  scale: 1.0                   # >1 放大画面，<1 缩小画面
+  rotation_deg: 0.0            # OpenCV 正角度为逆时针
+  translation_ratio: [0.0, 0.0] # [tx/W, ty/H]，正值向右/向下移动内容
+  pivot_ratio: [0.5, 0.65]     # 缩放与旋转中心，靠近常用接触区域
+  border_mode: reflect101      # 避免策略输入出现黑边
+  # transform_type: homography 时改用以下 3x3 source->canonical 矩阵：
+  # matrix: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+
+# 相机设置（与 robot_config.yaml 一致）
+# 若 robot_config 已定义相机，此处可留空或覆盖
+# camera_realsense_uids: []
+
+# 动作维度说明：
+# 10D: pose10d(9) + gripper(1)          -- 标准 UMI checkpoint
+# 15D: pose10d(9) + O6 handCommand(6)   -- 灵巧手 checkpoint
+# 20D: flattened Wuji qpos              -- Wuji checkpoint
+# 29D: pose10d(9) + Wuji qpos(20)       -- 混合 checkpoint

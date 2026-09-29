@@ -1,0 +1,52 @@
+# AdaptiveOptimizerAnalytical configuration tuned as a starting point for
+# PICO hand tracking -> Wuji Hand.
+#
+# Tune the values under retarget.segment_scaling first if an open human hand
+# still makes the Wuji fingers slightly curled. Larger DIP/TIP values make the
+# target distal keypoints farther from the wrist, encouraging straighter robot
+# fingers in open-hand poses.
+
+optimizer:
+  type: "AdaptiveOptimizerAnalytical"
+
+retarget:
+  # Huber loss thresholds
+  huber_delta: 2.0
+  huber_delta_dir: 0.5
+
+  # Regularization
+  norm_delta: 0.04
+
+  # TipDirVec parameters
+  w_pos: 1.0
+  w_dir: 10.0
+  scaling: 1.13 # 手掌中心到指尖的距离相对于手腕到指尖的距离的缩放因子，调整这个值可以让手指在张开时更直或者更弯曲
+  project_tip_dir: false
+
+  # FullHandVec parameters
+  w_full_hand: 1.0
+  segment_scaling: #关节缩放因子，调整这个值可以让手指在张开时更直或者更弯曲
+    thumb:  [1.15, 1.08, 1.13]
+    index:  [1.25, 1.10, 1.13]
+    middle: [1.25, 1.10, 1.13]
+    ring:   [1.25, 1.10, 1.13]
+    pinky:  [1.30, 1.18, 1.18]
+
+  # Pinch distance thresholds (cm) for each finger.
+  pinch_thresholds:
+    index:  { d1: 2.0, d2: 4.0 }
+    middle: { d1: 2.0, d2: 4.0 }
+    ring:   { d1: 2.0, d2: 4.0 }
+    pinky:  { d1: 2.0, d2: 4.0 }
+
+  # MediaPipe rotation adjustment (degrees)
+  mediapipe_rotation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+
+render:
+  camera:
+    azimuth: 135
+    elevation: -20
+    distance: 0.5

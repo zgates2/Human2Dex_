@@ -1,0 +1,83 @@
+import numpy as np
+import time
+from vive_tracker import ViveForceSensorTracker
+from loguru import logger
+
+from spatialmath import SE3, UnitQuaternion
+
+    # def _pose_to_matrix(pos, quat_wxyz):
+    #     T = tft.quaternion_matrix(quat_wxyz)
+    #     T[:3, 3] = pos
+    #     return T
+    
+from reactive_diffusion_policy.common.action_utils import (
+    interpolate_actions_with_ratio,
+    relative_actions_to_absolute_actions,
+    absolute_actions_to_relative_actions,
+    get_inter_gripper_actions
+)
+# import requests
+from reactive_diffusion_policy.common.space_utils import (
+    ortho6d_to_rotation_matrix,
+    pose_3d_9d_to_homo_matrix_batch,
+    homo_matrix_to_pose_9d_batch,
+    matrix4x4_to_pose_6d,
+    pose_7d_to_4x4matrix
+)
+
+class HTCTeleopHelper:
+    def __init__(self):
+        try:
+            self.vive_tracker = ViveForceSensorTracker()
+            logger.info("HTC Teleop Helper 初始化成功。")
+        except Exception as e:
+            logger.info(f"初始化 Vive Tracker 失败: {e}")
+            self.vive_tracker = None
+        
+        self.position_offset = None
+
+    def calculate_offset(self, robot_current_pose_7d: list):
+        if self.vive_tracker is None:
+            raise RuntimeError("Vive Tracker 未初始化，无法计算偏移量。请检查设备连接。")
+
+        logger.info("--- 正在计算远程操作偏移量 ---")
+        
+        robot_pos_initial = np.array(robot_current_pose_7d[:3])
+        logger.info(f"已获取机器人初始位置: {robot_pos_initial}")
+
+        logger.info("正在获取HTC Vive数据以进行对齐...")
+        for i in range(50):
+            htc_pose_7d = self.vive_tracker.get_force_sensor_pose()
+            htc_pos_initial = np.array(htc_pose_7d[:3])
+            logger.info(f"已获取HTC初始位置: {htc_pos_initial}")
+            self.position_offset = robot_pos_initial - htc_pos_initial
+            logger.info(f"偏移量计算完成: {self.position_offset}")
+
+        # self.position_offset = robot_pos_initial - htc_pos_initial
+        # logger.info(f"偏移量计算完成: {self.position_offset}")
+        return True
+
+    def get_target_pose(self) -> list | None:
+        if self.position_offset is None or self.vive_tracker is None:
+            logger.info("\r[警告] 远程操作未激活或未初始化，无法计算目标位姿。", end="")
+            return None
+        
+        current_htc_pose_7d = self.vive_tracker.get_force_sensor_pose()
+        htc_pos_current = np.array(current_htc_pose_7d[:3])
+        htc_quat_current = np.array(current_htc_pose_7d[3:])
+        target_robot_pos = htc_pos_current + self.position_offset
+        # final_target_pose_7d = np.concatenate([target_robot_pos, htc_quat_current]).tolist()
+        final_target_pose_7d = np.concatenate([target_robot_pos, htc_quat_current]).tolist()
+        
+        return final_target_pose_7d, current_htc_pose_7d
+
+    def reset_offset(self):
+        """重置偏移量状态。"""
+        self.position_offset = None
+        self.target_orientation = None
+        logger.info("远程操作偏移量已重置。")
+
+    def shutdown(self):
+        """安全关闭Vive Tracker。"""
+        if self.vive_tracker:
+            self.vive_tracker.shutdown()

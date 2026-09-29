@@ -1,0 +1,68 @@
+# PICO + wrist RGB model fusion collection config for teleop/collect_data_fused.py.
+
+# Output root. Empty uses data/. Episodes are saved under:
+#   <out>/<task-name>/episode_XXXX/episode_XXXX.pkl
+# If an episode directory is deleted, the lowest missing number is reused.
+task_name: test
+
+out:
+
+# Sampling.
+# Request 30 Hz so the real saved rate stays above 30 Hz after camera and
+# scheduler jitter on zjc's i9-13900H + RTX 4060 pipeline.
+hz: 30.0
+cache_hz: 60.0
+
+# PICO/retargeting.
+hand: right
+retargeting_yaml:
+wuji_retargeting_yaml: wuji_retargeting/config/adaptive_analytical_pico.yaml
+
+# Recording control. Null means interactive only: press s to start/stop.
+duration:
+key_debounce: 0.8
+keep_invalid: false
+
+# Pico 第一视角图像。当前 xrobotoolkit_sdk 不提供头显图像 API；此处设备应为
+# Pico 投屏网页、虚拟摄像头或其它视频源。touping.picoxr.com 网页会自动由
+# Chrome 截图；例如：pico_first_view_device: https://touping.picoxr.com/92kb
+# 当前示例已开启；改为 false 即可关闭，不影响原采集数据。
+pico_first_view_enabled: true
+pico_first_view_device: https://touping.picoxr.com/92kb
+pico_first_view_width:
+pico_first_view_height:
+pico_first_view_fps: 30.0
+
+# MVS camera. Null auto-selects the first detected camera.
+mvs_serial:
+
+# MVS RGB geometry/performance. Default keeps the full fisheye square via a
+# hardware center ROI, which is much closer to 60 Hz on zjc than full-frame
+# software crop/resize. Set mvs_auto_crop_black_border: true to auto-fit the
+# fisheye circle, or set both resolutions to [640, 480] for a normal sensor ROI.
+mvs_resolution: [480, 480]
+mvs_input_resolution: [1440, 1080]
+mvs_auto_crop_black_border: false
+mvs_center_crop: true
+mvs_use_sensor_crop_roi: true
+mvs_exposure_time_us: 15000.0
+mvs_capture_fps: 30.0
+
+# RGB/PICO alignment. mvs_buffered lets the wrist MVS reader run at
+# mvs_capture_fps and keeps its history cache filled; the collection loop still
+# samples at hz and pulls the nearest cached RGB/PICO frames for each sample.
+# max_rgb_pico_delta_ms is a quality warning threshold, not a hard drop filter,
+# in mvs_buffered/mvs_master mode.
+mvs_sync_mode: mvs_master
+max_rgb_pico_delta_ms: 20.0
+
+# JPG writing. Sampling thread only enqueues RGB frames; background workers do
+# JPEG encoding and disk I/O. Increase workers/queue if metadata shows
+# writer.blockedPuts > 0.
+jpg_quality: 95
+jpg_writer_workers: 2
+jpg_writer_queue_size: 1024
+
+# Test the collection loop without writing files. If MVS init fails in dry-run,
+# collection falls back to PICO-only.
+dry_run: false

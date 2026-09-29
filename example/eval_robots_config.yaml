@@ -1,0 +1,173 @@
+{
+  # ===== robots: 0->right 1->left =====
+  # comment out robot #1 if only using 1 arm
+  "robots": [
+    {
+      "robot_type": "franka",
+      "robot_ip": "172.16.13.171",
+      "robot_port": 4242,                          # franka NUC ZeroRPC port
+      "rpc_timeout": 10.0,                         # joint init can take slightly over the default 5s ZeroRPC timeout
+      "max_commands_per_cycle": 4,                 # 最大命令排队数量，过多可能导致过时命令积压；过少可能导致通信不畅（尤其是高频控制时）
+      "start_impedance_on_start": true,            # 启动 env 时就进入笛卡尔阻抗,避免首段 policy action 被懒启动延迟吃掉
+      "pose_api": "rotvec",                        # enables flange<->tool transform below; "rpy" bypasses it
+      # T_flange_tool: Franka flange frame -> policy-controlled tool/TCP frame.
+      # Use either a 6D pose [x, y, z, rx, ry, rz] or a 4x4 homogeneous matrix.
+      # Omit this key to use the original UMI default transform.
+      # 旋转前方向为右手坐标系，z朝向机械臂外，x朝向灵巧手指伸出方向；
+      # -------------------------------------------------------------------------------------
+      # 训练时转化数据为右手坐标系，-z朝向灵巧手指伸出方向，x朝向手掌向下方向
+      # "tx_flange_tip": [0.0, -0.2, 0.3, 0.0, 1.57079632679, 0.0], #linker_o6/pick_cube
+      # "tx_flange_tip": [0.13 , -0.05, 0.07, 0.16, 1.57079632679, 0.0], # bottle
+      "tx_flange_tip": [0.13 , -0.05, 0.07, 0.0, 1.57079632679, 0.0], #linker_o6 标准
+      # "tx_flange_tip": [0.08, -0.03, 0.05, 0.0, 1.57079632679, 0.0], #linker_o6/pick_bread_tcp
+      # "tx_flange_tip": [0.14, -0.05, 0.05, 0.2, 1.57079632679, 0.0], #wuji_hand tcp标准
+      # "tx_flange_tip": [0.0, 0.0, 0.0, 0.2, 1.57079632679, 0.0], #wuji_hand tcp bottle
+      # "tx_flange_tip": [0.08, -0.06, 0.06, 0.0, 1.57079632679, 0.0], #wuji_hand
+      # "tx_flange_tip": [0.1, -0.03, 0.05, 0.2 , 1.57079632679, 0.0],
+      
+      
+      # "robot_obs_latency": 0.0001, "robot_action_latency": 0.0, "tcp_offset": 0.235,
+      "robot_obs_latency": 0.0001, "robot_action_latency": 0.0, "tcp_offset": 0.0,
+      # table height for finger-table collision avoidance; -inf to disable
+      "height_threshold": -1,
+      # sphere collision primitive for inter-gripper collision avoidance; 0 disables
+      "sphere_radius": 0.1, "sphere_center": [0, -0.06, -0.185], # 根据实际情况调整碰撞球位置，通常在两指中点稍前方
+      # "joints_init": [-1.1880373329551597, -0.8829978849706593, 1.7282171129246187, -2.4069795378982355, 0.41006126869387094, 2.534228428575752, 1.269965081372192]
+      # "joints_init": [-0.5580299940734644, -1.4014525806527387, 1.464156414938347,-2.528962451750772, 1.0339208633253716, 1.9517397583333898, 1.0429383274824922]
+      # "joints_init":[2.2167084217071533, 0.5733551383018494, -1.7963802814483643,   -2.1850998401641846, 0.9231876730918884, 1.5789185762405396, 0.9245984554290771]
+      "joints_init" : [2.042051315307617, 0.844348132610321, -1.6661698818206787, -2.128263235092163, 1.1223664283752441, 1.6931841373443604, 1.0936359167099]  # pick_sponge
+      # "joints_init" : [2.027601957321167, 0.74720299243927, -1.7075179815292358, -2.1653835773468018, 1.1834005117416382, 1.693254828453064, 1.0649957656860352] # pick_sponge——wuji
+      # "joints_init" : [1.8345361948013306, 0.9683077335357666, -1.4332435131072998, -1.9954655170440674, 1.2647038698196411, 1.8088951110839844, 1.1129907369613647]
+      # "joints_init" : [2.0099925994873047, 1.0701251029968262, -1.5962053537368774, -2.0696732997894287, 1.0869677066802979, 1.542405128479004, 1.1446892023086548] # 右歪
+      # "joints_init" : [1.6317933797836304, 0.4381123483181, -1.0824835300445557, -2.2062501907348633, 0.6585071682929993, 2.4030966758728027, 1.6354972124099731] # lift bottle
+      # "joints_init" : [1.6360589265823364, 0.8319039344787598, -1.386971354484558, -1.858198642730713, 1.0210477113723755, 1.3379442691802979, 1.102183222770691] #pick cube
+      # "joints_init" :  [1.651113510131836, 1.434645175933838, -1.3691133260726929, -2.3204877376556396, 1.5220504999160767, 1.7861964702606201, -0.03413486108183861] # Egg_Carton
+      # "joints_init" : [1.897861361503601, 1.4621353149414062, -1.5292370319366455, -2.4517970085144043, 1.5196759700775146, 1.5066331624984741, 0.10656052082777023] # Egg_Carton_wuji
+      # "joints_init" : [2.6425728797912598, 0.08345422148704529, -2.025270938873291, -2.185171365737915, 0.01589057594537735, 1.9240061044692993, 1.3953495025634766] #open drawer
+      # "joints_init" : [1.9489812850952148, 1.487813949584961, -1.9084969758987427, -2.1151256561279297, 1.4148815870285034, 1.2308704853057861, 0.7509259581565857] #open drawer
+      # "joints_init" : [0.8404319882392883, -0.08165962249040604, -0.32424256205558777, -2.6196212768554688, 0.7074086666107178, 2.5196120738983154, 1.3052242994308472] # flower in vase
+      # "joints_init" : [1.188254714012146, 0.05091331526637077, -0.6923370361328125, -2.4283878803253174, 0.771988570690155, 2.476874589920044, 1.2596276998519897] # flower in vase——2
+      # "joints_init" : [1.9283708333969116, -1.0062696933746338, -1.796842098236084, -2.8006269931793213, 2.5981860160827637, 2.318063259124756, -2.1149978637695312] #water
+      # "joints_init" : [1.8732922077178955, 1.4337692260742188, -1.619588017463684, -2.1769111156463623, 1.4856468439102173, 1.6435459852218628, 1.2385777235031128] #adjust bottle
+      # "joints_init" : [1.1303956508636475, 0.3760039210319519, -0.6809460520744324, -1.9710277318954468, 0.3379824757575989, 2.256558895111084, 1.9338430166244507] # bottle_2
+      },
+  ],
+
+  # ===== grippers: same order as robots =====
+  # gripper_type:
+  #   "wsg"      -> WSGController (TCP, default)
+  #   "lkmotor"  -> LkGripperProxy (RS485, MIT impedance, omniumi-style)
+  "grippers": [
+    {
+      "gripper_type": "lkmotor",
+      "mode": "single",                            # "single" | "dual"
+      "port1": "/dev/ttyUSB2",
+      "motor1_id": 1,
+      "close_offset_rad": 0.10,                    # target<=0.05rad 时额外向闭合方向压,保证 0rad 真闭合
+      "close_offset_active_below_rad": 0.05,
+      "start_episode_open_rad": 3.2,               # 每次 policy start 前先打开到该 rad; null/删除则关闭
+      "start_episode_open_duration_s": 1.2,
+      "start_episode_open_force_limit_nm": 1.5,
+      # only used in dual mode:
+      # "port2": "/dev/ttyUSB3", "motor2_id": 1,
+      "gripper_obs_latency": 0.01,
+      # "gripper_action_latency": 0.065
+      "gripper_action_latency": 0.065
+    },
+    # WSG example:
+    # {
+    #   "gripper_type": "wsg",
+    #   "gripper_ip": "192.168.1.20",
+    #   "gripper_port": 1000,
+    #   "gripper_obs_latency": 0.01,
+    #   "gripper_action_latency": 0.1
+    # }
+  ],
+
+  # ===== Linker-O6 dexterous hand =====
+  # O6 不走 UMI 原版 1D gripper 接口；推理脚本会单独用 DexUMI/o6_right_hand/controller.py
+  # 里的 O6RightHand.move([6D]) 发 CAN 控制命令。
+  "linker_o6": {
+    "dexumi_root": "/home/zjc/Desktop/human2dex",     # DexUMI 代码根目录，用于导入 o6_right_hand/controller.py
+    "can_channel": "can0",                         # SocketCAN 接口名
+    "bitrate": 1000000,                            # CAN 波特率，Linker-O6 默认 1 Mbps
+    "speed": 200,                                  # set_speed，全关节统一速度，范围 0~255
+    "torque": null,                                # set_torque，全关节统一力矩上限；null 表示不主动设置
+    "init_pose": [250, 160, 250, 250, 250, 250],   # --init 时发送的 O6 初始关节指令(0~255)
+    "home_on_start": false,                        # policy 开始前是否先回到张开初始位
+    "home_on_exit": false,                         # 脚本退出时是否回到张开初始位
+    "clear_queue": true,                           # 每轮新 policy action 到来时清空未执行的 O6 旧命令
+    "dry_run": false,                              # true 时只打印/调度命令，不实际发送 CAN
+    "filter_enabled": false,                        # true 时在 O6 move 前对 handCommand 做平滑/限速
+    "filter_alpha": 0.6,                          # EMA 系数: 1.0 不低通,越小越平滑但延迟越大
+    "filter_max_delta_per_step": 12,               # 每个执行步每个关节最大变化量; null 表示不限制
+    "filter_deadband": 0,                          # 小于该幅度的变化忽略,用于抑制微小抖动
+    "command_shape": 6,                            # 训练权重输出的 handCommand 维度
+    "command_range": [0, 255]                      # O6RightHand.move 接收的关节命令范围
+  },
+
+  # ===== Wuji dexterous hand =====
+  # 当 policy.predict_action 输出 result["wuji_command"]，或 action 为 20D/29D Wuji qpos 时启用。
+  # wuji_command 形状: (5,4) 或 (H,5,4)，单位 radians；脚本会展平成 20D 后调用
+  # /home/zjc/wuji_demo/wuji_pico_hand/hand_driver.py 的 WujiHandDriver.send_positions。
+  "wuji_hand": {
+    "wuji_demo_root": "/home/zjc/wuji_demo",       # 用于导入 wuji_pico_hand.hand_driver
+    "serial_number": null,                         # 多只 Wuji Hand 时填写指定 SN；null 使用 SDK 默认设备
+    "timeout": null,                               # SDK 调用 timeout；nulsl 表示使用 SDK 默认
+    "refresh_limits": true,                        # 启动时读取关节限位并在 send_positions 内 clamp
+    "clear_queue": true,                           # 每轮新 policy action 到来时清空未执行旧 qpos
+    "dry_run": false,                              # true 时只打印 qpos，不写硬件
+    "init_qpos": [[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]],
+    "init_settle_s": 0.5,                          # --init 后额外等待手部稳定的时间
+    "filter_enabled": true,                        # true 时在 Wuji qpos 发送前做平滑/限速
+    "filter_alpha": 0.5,                          # EMA 系数: 1.0 不低通,越小越平滑但延迟越大
+    "filter_max_delta_per_step": 0.08,             # 每个执行步每个关节最大变化量(rad); null 表示不限制
+    "filter_deadband": 0.005,                        # 小于该幅度(rad)的变化忽略,用于抑制微小抖动
+    "command_shape": [5, 4],
+    "command_unit": "radians"
+  },
+
+  # ===== cameras =====
+  # backend:
+  #   "uvc" -> MultiUvcCamera (Elgato + GoPro / V4L2). If `paths` is null the
+  #            env auto-detects via get_sorted_v4l_paths + camera_reorder.
+  #   "mvs" -> MultiMvsCamera (Hikrobot USB3); `serials` lists devices in
+  #            camera_idx order.
+  "cameras": {
+    "backend": "mvs",
+    "capture_fps": 30,                             # physical capture fps; use 60Hz when MVS/USB path is stable
+    "obs_latency": 0.0,                            # MVS hardware timestamp path; UVC calibrated latency was 0.17
+    "resolution": [224, 224],                      # downsampled obs resolution
+    "use_collection_camera_config": true,          # use collection-side create_camera_configs_from_serials defaults
+    "input_res": [1440, 1080],                     # collection-side full sensor readout; C++ crops/resizes before Python sees frames
+    # UVC: leave `paths` null to use auto-detect + camera_reorder
+    "paths": null,
+    # MVS: list serial strings (order = camera_idx)
+    "serials": ["DA9057802"],
+    # MVS only: exposure / white balance
+    "exposure_time_us": 15000.0,
+    "gain_auto": "off", #continuous | once | off
+    "gain_db": 6.0,
+    "balance_white_auto": "continuous",
+    "auto_crop_black_border": false,                # match collection MVS startup auto-crop; removes extra fisheye black border before resize
+    "auto_crop_black_threshold": 12,
+    "auto_crop_margin_px": 0,
+    "rotate_180": true
+  },
+
+  # ===== force sensors: same order as robots =====
+  # null entries mean "no force sensor for that robot"
+  # 力 wrench = [Fx, Fy, Fz, Mx, My, Mz]
+  # gravity_compensation 使用采集端 cali_params.pkl 中的 cali_info/cali_bias 公式;
+  # 姿态来源改为 robot0 TCP rotation,当前只按单臂/传感器坐标系与 TCP 对齐处理。
+  "force_sensors": [null],
+
+  # ===== bimanual base transform =====
+  # right arm's base frame in left arm's base coordinate frame
+  "tx_left_right": [
+    [ 0.99996206,  0.00661996,  0.00566226, -0.01676012],
+    [-0.00663261,  0.99997554,  0.0022186 , -0.60552492],
+    [-0.00564743, -0.00225607,  0.99998151, -0.007277  ],
+    [ 0.        ,  0.        ,  0.        ,  1.        ]
+  ]
+}

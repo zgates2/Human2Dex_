@@ -1,0 +1,70 @@
+(rdp) ps@pc-4090:~/Data-Scaling-Laws-Infer/scripts_real$ python calibrate_mvs_fisheye_qr_latency.py 
+[info] opening serial=DA6242414 (720, 720) @ 60Hz, exposure 15000us
+[info] point the fisheye camera at the QR window; press c to compute stats, q to quit
+[MvsCamera DA6242414] auto-crop probing fisheye black border
+[MvsCamera DA6242414] auto-crop sensor_crop=(188,38,1042,1042) -> 720x720
+Display loop 12.4 FPS. frame_id=0
+Display loop 86.1 FPS. frame_id=36
+Display loop 87.0 FPS. frame_id=58
+Display loop 84.6 FPS. frame_id=80
+Display loop 88.6 FPS. frame_id=104
+Display loop 72.0 FPS. frame_id=130
+Display loop 70.8 FPS. frame_id=156
+Display loop 83.3 FPS. frame_id=178
+Display loop 83.3 FPS. frame_id=200
+Display loop 79.9 FPS. frame_id=228
+Display loop 79.9 FPS. frame_id=252
+Display loop 64.7 FPS. frame_id=276
+Display loop 61.4 FPS. frame_id=304
+Display loop 85.2 FPS. frame_id=328
+Display loop 84.9 FPS. frame_id=350
+Display loop 82.7 FPS. frame_id=372
+Display loop 84.0 FPS. frame_id=396
+Display loop 85.6 FPS. frame_id=418
+Display loop 64.5 FPS. frame_id=444
+Display loop 80.5 FPS. frame_id=468
+Display loop 83.5 FPS. frame_id=490
+Display loop 77.8 FPS. frame_id=512
+Display loop 80.7 FPS. frame_id=536
+Display loop 77.7 FPS. frame_id=560
+Display loop 68.0 FPS. frame_id=586
+Display loop 68.7 FPS. frame_id=610
+Display loop 55.8 FPS. frame_id=636
+Display loop 82.6 FPS. frame_id=662
+Display loop 83.0 FPS. frame_id=684
+Display loop 81.0 FPS. frame_id=704
+Display loop 80.3 FPS. frame_id=728
+Display loop 68.3 FPS. frame_id=754
+Display loop 83.9 FPS. frame_id=778
+Display loop 75.1 FPS. frame_id=804
+Display loop 78.4 FPS. frame_id=826
+Display loop 77.0 FPS. frame_id=850
+Display loop 66.0 FPS. frame_id=872
+Display loop 76.4 FPS. frame_id=896
+Display loop 76.0 FPS. frame_id=918
+Display loop 84.6 FPS. frame_id=944
+Display loop 76.1 FPS. frame_id=966
+Display loop 80.7 FPS. frame_id=990
+Display loop 81.4 FPS. frame_id=1012
+Display loop 84.5 FPS. frame_id=1034
+Display loop 86.0 FPS. frame_id=1056
+Display loop 63.1 FPS. frame_id=1078
+Display loop 84.1 FPS. frame_id=1100
+Display loop 85.3 FPS. frame_id=1124
+Display loop 83.8 FPS. frame_id=1146
+Display loop 82.0 FPS. frame_id=1170
+Display loop 82.3 FPS. frame_id=1192
+Display loop 86.3 FPS. frame_id=1216
+Display loop 72.8 FPS. frame_id=1238
+Display loop 75.7 FPS. frame_id=1260
+Display loop 85.6 FPS. frame_id=1284
+
+frames analyzed                   : 120
+decoded unique QR frames          : 0
+capture timestamp interval        : mean=33.343ms std=0.027ms min=33.323ms max=33.547ms (expected 16.667ms)
+[WARN] MVS output path is not sustaining the configured 60Hz at this test resolution. Use a smaller test resolution for latency calibration.
+frame id delta                    : min=2 max=2 dropped_gaps=119
+[WARN] analyzed frames are not consecutive; QR latency stats are still useful as a rough sanity check, but this run should not be used to validate 60Hz timing.
+[FAIL] no QR detections in captured frames
+saved debug images                : /home/zjc/Desktop/human2dex/data_local/mvs_fisheye_qr_debug
+  Check whether the QR code fills a large central area of the camera image.

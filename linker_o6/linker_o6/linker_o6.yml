@@ -1,0 +1,57 @@
+# left:
+#   # type: DexPilot
+#   type: DexPilot
+
+#   urdf_path: linker_o6/left/linkerhand_o6_left.urdf
+
+#   # 控制的 6 个目标关节：拇指 yaw/pitch + 四指 MCP（proximal）
+#   target_joint_names:
+#     - thumb_cmc_pitch # 弯曲
+#     - thumb_cmc_yaw # 横摆
+#     - index_mcp_pitch
+#     - middle_mcp_pitch
+#     - ring_mcp_pitch
+#     - pinky_mcp_pitch
+
+#   # 手腕/基座与指尖 link
+#   wrist_link_name: "base_link"
+#   finger_tip_link_names:
+#     - thumb_tip
+#     - index_tip
+#     - middle_tip
+#     - ring_tip
+#     - pinky_tip
+#   target_link_human_indices_dexpilot: [[ 9, 14, 19, 24, 14, 19, 24, 19, 24, 24,  0,  0,  0,  0,  0], [ 4,  4,  4,  4,  9, 9,  9, 14, 14, 19,  4,  9, 14, 19, 24]]
+
+
+#   scaling_factor: 1.0
+#   low_pass_alpha: 0.2
+  
+# right:
+retargeting:
+  type: DexPilot
+  urdf_path: linker_o6/linker_o6/right/linkerhand_o6_right.urdf
+
+  # 控制的 6 个目标关节：拇指 yaw/pitch + 四指 MCP（proximal）
+  target_joint_names:
+    - thumb_cmc_pitch
+    - thumb_cmc_yaw
+    - index_mcp_pitch
+    - middle_mcp_pitch
+    - ring_mcp_pitch
+    - pinky_mcp_pitch
+
+  # 手腕/基座与指尖 link
+  wrist_link_name: "base_link"
+  finger_tip_link_names:
+    - thumb_tip
+    - index_tip
+    - middle_tip
+    - ring_tip
+    - pinky_tip
+  target_link_human_indices_dexpilot: [[ 9, 14, 19, 24, 14, 19, 24, 19, 24, 24,  0,  0,  0,  0,  0], [ 4,  4,  4,  4,  9, 9,  9, 14, 14, 19,  4,  9, 14, 19, 24]]
+
+
+  # 尺度与滤波（先用默认，后面再精调）
+  scaling_factor: 1.0
+  low_pass_alpha: 0.2

@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+import lcm
+import threading
+import numpy as np
+import time
+from typing import List
+from loguru import logger
+
+from exlcm import control_command_t, franka_state_t
+
+class FlexivController:
+
+    def __init__(self):
+        self.DOF = 7
+
+        self.LCM_URL = "udpm://239.255.76.67:7667?ttl=64"
+        self.lc = lcm.LCM(self.LCM_URL)
+        self.LCM_COMMAND_CHANNEL = "ROBOT_COMMAND"
+        self.LCM_STATE_CHANNEL = "FRANKA_STATE"
+
+        self.lc.subscribe(self.LCM_STATE_CHANNEL, self.lcm_state_handler)
+
+        self.current_q = [0.0] * self.DOF
+        self.current_q_d = [0.0] * self.DOF
+        self.current_K_F_ext_hat_K = [0.0] * 6
+        self.current_O_F_ext_hat_K = [0.0] * 6
+        self.current_O_T_EE = [0.0] * 16
+        self.current_O_T_EE_d = [0.0] * 16
+        self.current_tcp = [0.0] * 6  
+
+        self.lcm_thread = threading.Thread(target=self.lcm_loop)
+        self.lcm_thread.daemon = True
+        self.lcm_thread.start()
+
+        logger.info("FlexivController 客户端已启动并正在运行...")
+
+    def lcm_state_handler(self, channel, data):
+        """处理从LCM收到的机器人状态消息"""
+        try:
+            msg = franka_state_t.decode(data)
+            
+            self.current_q = list(msg.q)
+            self.current_q_d = list(msg.q_d)
+            self.current_K_F_ext_hat_K = list(msg.K_F_ext_hat_K)
+            self.current_O_F_ext_hat_K = list(msg.O_F_ext_hat_K)
+            self.current_O_T_EE = list(msg.O_T_EE)
+            self.current_O_T_EE_d = list(msg.O_T_EE_d)
+
+            matrix = np.array(msg.O_T_EE).reshape((4, 4), order='F')
+            position = matrix[:3, 3]
+            self.current_tcp[:3] = position.tolist()
+
+        except Exception as e:
+            logger.error(f"处理LCM状态消息时出错: {e}")
+
+    def lcm_loop(self):
+        """在后台线程中运行的LCM循环"""
+        while True:
+            # self.lc.handle_timeout(100)
+            self.lc.handle()
+
+    def clear_fault(self):
+        pass
+
+    def get_current_robot_states(self):
+        pass
+
+    def get_current_gripper_states(self):
+        pass
+
+    def get_current_gripper_force(self):
+        pass
+
+    def get_current_gripper_width(self):
+        pass
+
+    def get_current_q(self) -> List[float]:
+        return self.current_q.copy()
+
+    def get_current_q_d(self) -> List[float]:
+        return self.current_q_d.copy()
+        
+    def get_K_F_ext_hat_K(self) -> List[float]:
+        return self.current_K_F_ext_hat_K.copy()
+        
+    def get_O_F_ext_hat_K(self) -> List[float]:
+        return self.current_O_F_ext_hat_K.copy()
+        
+    def get_O_T_EE(self) -> List[float]:
+        return self.current_O_T_EE.copy()
+        
+    def get_O_T_EE_d(self) -> List[float]:
+        return self.current_O_T_EE_d.copy()
+
+    def get_current_tcp(self) -> List[float]:
+        return self.current_tcp.copy()
+
+    def move_delta(self, delta_6dof: List[float]):
+        pass
+
+    def tcp_move(self, target_tcp: List[float]):
+        """直接发送TCP目标位姿指令到LCM"""
+        if len(target_tcp) != 6:
+            logger.error(f"tcp_move指令长度错误，需要6个元素，但收到了{len(target_tcp)}个")
+            return
+            
+        lcm_msg = control_command_t()
+        lcm_msg.timestamp = int(time.time() * 1e9)
+        lcm_msg.xyzrpy = [float(x) for x in target_tcp]
+        
+        self.lc.publish(self.LCM_COMMAND_CHANNEL, lcm_msg.encode())
+        logger.info(f"已通过LCM发送TCP指令: {lcm_msg.xyzrpy}")
+
+    def execute_primitive(self, primitive_command: str):
+        pass
+
+    @staticmethod
+    def parse_pt_states(pt_states,parse_target):
+        pass
+
+
+def main():
+    """
+    主函数
+    """
+    flexiv_controller = FlexivController()
+    
+
+    time.sleep(2)
+
+    logger.info("发送示例TCP移动指令...")
+    # flexiv_controller.tcp_move([0.0, 0.0, .01, 0.0, 0.0, 0.0])
+    flexiv_controller.tcp_move([0.0, 0.0, 0.0, -np.pi/4, 0.0, 0.0])
+    
+    time.sleep(1)
+
+    current_tcp = flexiv_controller.get_current_tcp()
+    logger.info(f"当前TCP位置 (来自状态消息): {current_tcp}")
+    current_q = flexiv_controller.get_current_q()
+    logger.info(f"当前关节角度 (来自状态消息): {current_q}")
+
+    print("\n=======================================================")
+    print(" Flexiv客户端正在运行...")
+    print(" 它现在会持续监听LCM状态消息。")
+    print(" 按 Ctrl+C 退出。")
+    print("=======================================================\n")
+    
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\n程序被用户中断。正在退出...")
+
+
+if __name__ == "__main__":
+    main()

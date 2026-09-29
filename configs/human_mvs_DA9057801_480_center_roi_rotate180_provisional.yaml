@@ -1,0 +1,25 @@
+# Exact image geometry recorded in pick_6_pro sample metadata:
+# sensor 1440x1080 -> hardware centre ROI x=480,y=300,w=480,h=480 -> rotate 180°.
+# K,D are derived from the current full-sensor calibration.  The eventual
+# camera<-raw_PICO_wrist fit and overlay holdout are the acceptance gate; do
+# not use this file to bulk-materialize a dataset before that gate passes.
+camera_model: opencv_fisheye
+image_width: 480
+image_height: 480
+camera_matrix:
+  - [327.7564999206798, 0.0, 173.3814284342649]
+  - [0.0, 328.3293708622211, 244.3318697604071]
+  - [0.0, 0.0, 1.0]
+dist_coeffs:
+  - [-0.010826776959138886]
+  - [-0.0036319346487207914]
+  - [-0.003713554182359157]
+  - [0.0008857160300693272]
+contract:
+  serial: DA9057801
+  source_full_sensor_intrinsics: /home/zjc/Desktop/human2dex/converted_data/params/fisheye_calib.yaml
+  source_full_sensor_size: [1440, 1080]
+  hardware_roi_xywh: [480, 300, 480, 480]
+  rotate_180: true
+  derive_rule: K_roi=(K_full with cx-=480,cy-=300); after_rotate180 cx=479-cx_roi,cy=479-cy_roi
+status: provisional_requires_human_hand_overlay_validation

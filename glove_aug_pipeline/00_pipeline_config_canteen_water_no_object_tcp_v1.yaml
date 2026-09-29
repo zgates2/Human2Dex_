@@ -1,0 +1,99 @@
+# Single-view canteen_water pipeline without task-object prompt tracking.
+# This keeps the raw dataset immutable and writes all derived data to a
+# versioned sibling bundle outside raw_root.
+
+runtime:
+  repo_root: /home/zjc/Desktop/human2dex
+  python: /share/project/liyuanyuan/anaconda3/envs/sam3/bin/python
+  data_scaling_laws_root: /home/zjc/Desktop/human2dex
+
+paths:
+  raw_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/canteen_water
+  # Do not put this directory under raw_root: stage 01 recursively scans raw_root.
+  base_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/pipeline_no_object_v1/base_enriched_v1
+  hand_masks_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/pipeline_no_object_v1/sam3_hand_masks_v1
+  masks_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/pipeline_no_object_v1/sam3_hand_masks_v1
+  appearance_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/pipeline_no_object_v1/appearance_single_view_skeleton_v1
+  appearance_qc_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/pipeline_no_object_v1/appearance_single_view_skeleton_v1_qc
+  o6_zarr_root: /share/project/liyuanyuan/data/dexglove_data/dex_data/linker_o6/canteen_water_no_object_single_view_skeleton_tcp_v1
+  wuji_zarr_root: /share/project/liyuanyuan/data/dexglove_data/dex_data/wuji/canteen_water_no_object_single_view_skeleton_tcp_v1
+
+reuse:
+  # The raw PKL string scan shows trajectoryPose/rgbImage/o6_command/wuji_command,
+  # but no trajectoryPose_tcp, fused_* or objectPocketObs fields.
+  wrist_fusion: false
+  grasp_pocket: true
+  hand_masks: false
+
+trajectory:
+  backfill_tcp: true
+  tcp_offset_mm: [-30.0, 40.0, 0.0]
+  invalid_policy: none
+  overwrite: false
+
+upstream:
+  sam3_config: /home/zjc/Desktop/human2dex/glove_aug_pipeline/01_generate_sam3_masks.yaml
+  appearance_config: /home/zjc/Desktop/human2dex/glove_aug_pipeline/02_augment_dataset.yaml
+
+models:
+  stage2_checkpoint: /home/zjc/Desktop/human2dex/wrist/outputs/test_3/runs/stage2_mano_onestage_v1/checkpoints/best.pt
+  wrist_projection_head_checkpoint: /home/zjc/Desktop/human2dex/wrist/outputs/stage2_projection_head_residual2d/proj_head_mano21_residual2d_grouped_20260730_200049/checkpoints/best.pt
+  pocket_head_checkpoint: /home/zjc/Desktop/human2dex/wrist/outputs/grasp_pocket_head/grasp_pocket_direct_v1/checkpoints/best.pt
+
+streams:
+  image_subdirs: [images]
+
+fields:
+  source_image: rgbImage
+  pocket_uv: wrist_grasp_pocket_uv
+  pocket_valid: wrist_grasp_pocket_valid
+  pocket_confidence: wrist_grasp_pocket_confidence
+
+appearance:
+  variants: 3
+  episode_suffix: _app_aug
+  seed: 20260814
+  jpeg_quality: 95
+  qc_frames: 8
+
+skeleton:
+  enabled: true
+  image_subdir: images
+  line_width: 2
+  point_radius: 4
+
+labels:
+  o6_action_field: fused_o6_command
+  wuji_action_field: fused_wuji_command
+  trajectory_field: trajectoryPose_tcp
+  trajectory_source: trajectoryPose_tcp
+  trajectory_min_dims: 6
+  skip_wuji: false
+
+zarr:
+  output_format: zip
+  image_compressor: blosc
+
+parallel:
+  prepare_workers: 64
+  wrist_devices: cuda:0,cuda:1,cuda:2,cuda:3,cuda:4,cuda:5,cuda:6
+  wrist_batch_size: 128
+  wrist_loader_workers: 8
+  wrist_precision: auto
+  wrist_log_every: 5
+  fusion_workers: 32
+  pocket_devices: [0, 1, 2, 3, 4, 5, 6]
+  pocket_batch_size: 128
+  pocket_loader_workers: 4
+  pocket_precision: auto
+  sam3_num_gpus: 7
+  sam3_batch_size: 32
+  sam3_prefetch: 8
+  appearance_workers: 32
+  appearance_io_workers: 2
+  appearance_mp_start_method: fork
+  zarr_workers: 64
+  zarr_opencv_threads: 1
+  zarr_blosc_threads: 1
+  zarr_image_batch_size: 32
+  zarr_max_inflight_tasks: 128

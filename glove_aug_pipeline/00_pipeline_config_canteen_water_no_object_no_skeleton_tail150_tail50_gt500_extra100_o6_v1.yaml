@@ -1,0 +1,42 @@
+# Second-pass canteen_water dataset processing based on the already processed
+# no-skeleton tail150 PKLs.  For each source episode in this processed dataset:
+#   - remove the last 50 frames
+#   - if that processed source episode has >500 frames, remove 100 more
+# Then build linker_o6-only zarr.  Original raw canteen_water PKLs are not used.
+
+runtime:
+  repo_root: /home/zjc/Desktop/human2dex
+  python: /share/project/liyuanyuan/anaconda3/envs/sam3/bin/python
+  data_scaling_laws_root: /home/zjc/Desktop/human2dex
+
+paths:
+  # Important: this is the already processed tail150 dataset, not the raw source data.
+  appearance_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/pipeline_no_object_no_skeleton_tail150_v1/appearance_single_view_tail150_v1
+  trimmed_appearance_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/canteen_water/pipeline_no_object_no_skeleton_tail150_tail50_gt500_extra100_v1/appearance_single_view_tail150_tail50_gt500_extra100_v1
+  o6_zarr_root: /share/project/liyuanyuan/data/dexglove_data/dex_data/linker_o6/canteen_water_no_object_single_view_tcp_no_skeleton_tail150_tail50_gt500_extra100_v1
+
+fields:
+  source_image: rgbImage
+
+trim_tail:
+  frames: 50
+  extra_frames: 100
+  extra_frames_if_source_gt: 500
+  drop_short: false
+
+labels:
+  o6_action_field: fused_o6_command
+  trajectory_field: trajectoryPose_tcp
+  trajectory_source: trajectoryPose_tcp
+  trajectory_min_dims: 6
+
+zarr:
+  output_format: zip
+  image_compressor: blosc
+
+parallel:
+  zarr_workers: 64
+  zarr_opencv_threads: 1
+  zarr_blosc_threads: 1
+  zarr_image_batch_size: 32
+  zarr_max_inflight_tasks: 128

@@ -1,0 +1,24 @@
+format_version: 1
+description: 20 operator-stepped O6 poses for camera extrinsic calibration
+value_convention: 250=open, 0=fully_flexed
+poses:
+  - {name: open, q: [250, 250, 250, 250, 250, 250]}
+  - {name: thumb_sweep_high, q: [235, 190, 250, 250, 250, 250]}
+  - {name: thumb_sweep_mid, q: [210, 120, 250, 250, 250, 250]}
+  - {name: thumb_sweep_low_holdout, q: [180, 60, 250, 250, 250, 250]}
+  - {name: index_half, q: [230, 180, 140, 245, 245, 245]}
+  - {name: index_deep, q: [220, 150, 70, 245, 245, 245]}
+  - {name: middle_half, q: [230, 180, 245, 140, 245, 245]}
+  - {name: middle_deep_holdout, q: [220, 150, 245, 70, 245, 245]}
+  - {name: ring_half, q: [230, 180, 245, 245, 140, 245]}
+  - {name: ring_deep, q: [220, 150, 245, 245, 70, 245]}
+  - {name: pinky_half, q: [230, 180, 245, 245, 245, 140]}
+  - {name: pinky_deep_holdout, q: [220, 150, 245, 245, 245, 70]}
+  - {name: index_middle_pair, q: [210, 130, 120, 120, 240, 240]}
+  - {name: ring_pinky_pair, q: [210, 130, 240, 240, 120, 120]}
+  - {name: pinch, q: [130, 100, 100, 240, 240, 240]}
+  - {name: power_light_holdout, q: [180, 120, 150, 150, 150, 150]}
+  - {name: power_mid, q: [145, 90, 105, 105, 105, 105]}
+  - {name: asymmetric_a, q: [170, 160, 80, 150, 220, 110]}
+  - {name: asymmetric_b, q: [115, 65, 190, 90, 140, 220]}
+  - {name: near_closed_visible_holdout, q: [110, 45, 55, 75, 95, 115]}

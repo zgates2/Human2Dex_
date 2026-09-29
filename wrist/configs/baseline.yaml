@@ -1,0 +1,53 @@
+seed: 42
+
+data:
+  data_root: data/pick_2
+  index_dir: wrist/outputs/index
+  image_size: 448
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  wrist_zero_tol_m: 0.0001
+
+model:
+  dino_dir: wrist/dino
+  feature_dim: 384
+  patch_size: 16
+  pooling_dropout: 0.0
+  head_dropout: 0.1
+
+loss:
+  joint_beta: 0.005
+  bone_length_weight: 0.1
+  bone_direction_weight: 0.05
+
+train:
+  batch_size: 32
+  num_workers: 4
+  persistent_workers: true
+  prefetch_factor: 4
+  epochs_stage_a: 20
+  epochs_stage_b: 50
+  head_lr: 0.0001
+  backbone_lr: 0.00001
+  weight_decay: 0.05
+  warmup_epochs: 5
+  grad_clip: 1.0
+  grad_accum_steps: 1
+  precision: auto
+  unfreeze_last_blocks: 4
+  channels_last: true
+  allow_tf32: true
+  cudnn_benchmark: true
+  matmul_precision: high
+
+eval:
+  num_visuals: 8
+  save_visuals_every: 1
+
+projection:
+  intrinsics_yaml: wrist/configs/fisheye_calib.yaml
+  camera_T_hand: null
+
+output:
+  run_dir: wrist/outputs/runs

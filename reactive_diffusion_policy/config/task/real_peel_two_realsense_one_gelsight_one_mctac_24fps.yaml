@@ -1,0 +1,195 @@
+defaults:
+  - real_robot_env@_here_
+  - _self_
+
+teleop_server:
+  # gripper params
+  use_force_control_for_gripper: True
+  # max_gripper_width: 0.1
+  # max_gripper_width: 0.12
+  # max_gripper_width: 0.16
+  max_gripper_width: 0.20 # 单位是m
+  # max_gripper_width: 3.0 # 单位是rad
+  # max_gripper_width: 1.2
+  min_gripper_width: 0.0
+  # grasp_force: 25.0
+  grasp_force: 5.0
+  gripper_control_time_interval: 30
+  gripper_control_width_precision: 0.01
+  gripper_never_open: False
+  # teleoperation mode
+  teleop_mode: 'left_arm_3D_translation'
+  relative_translation_scale: 1.0  # for dexterous teleoperation
+
+publisher:
+  # two realsense cameras
+  realsense_camera_publisher: 
+  #   - camera_serial_number: '036422060422'
+  #     camera_type: 'D400'
+  #     # camera_name: 'external_camera'
+  #     camera_name: "depth_camera"
+  #     rgb_resolution: [640, 480]
+  #     depth_resolution: [640, 480]
+  #     random_sample_point_num: 3000
+  #     fps: 24
+  #     decimate: 2  # (0-4) decimation_filter magnitude for point cloud
+  #     cpu_core_id:
+  #       - 10
+    # - camera_serial_number: 'f1422067'
+    # # - camera_serial_number: 'f1380685'
+    #   camera_type: 'L500'
+    #   camera_name: 'external_camera_l515'
+    #   rgb_resolution: [960, 540]
+    #   depth_resolution: [640, 480]
+    #   fps: 30
+    #   # exposure: 3000
+    #   cpu_core_id:
+    #     - 6
+        # - 13
+    
+    # - camera_serial_number: '948522071105'
+    # - camera_serial_number: 'f1380685'
+    # 1225 wipe blackboard wrist usage
+    # - camera_serial_number: '218722270752'
+    #   camera_type: 'D400'
+    #   camera_name: 'left_wrist_camera_d405'
+    #   rgb_resolution: [640, 480]
+    #   depth_resolution: [640, 480]
+    #   fps: 30
+    #   # exposure: 3000
+    #   cpu_core_id:
+    #     # - 5
+    #     # - 6
+    #     - 14
+    #     - 15
+
+    # - camera_serial_number: '218622273046'
+    #   camera_type: 'D400'
+    #   camera_name: 'left_wrist_camera_d405'
+    #   rgb_resolution: [640, 480]
+    #   depth_resolution: [640, 480]
+    #   # fps: 15
+    #   fps: 30
+    #   cpu_core_id:
+    #     - 14
+    #     - 15
+    
+    # - camera_serial_number: '218722270752'
+    #   camera_type: 'D400'
+    #   camera_name: 'left_wrist_camera_d405'
+    #   rgb_resolution: [640, 480]
+    #   depth_resolution: [640, 480]
+    #   # fps: 15
+    #   fps: 30
+    #   cpu_core_id:
+    #     - 14
+    #     - 15
+
+    # - camera_serial_number: 'f1380685'
+    #   camera_type: 'L500'
+    #   camera_name: 'external_camera_l515_2'
+    #   rgb_resolution: [960, 540]
+    #   depth_resolution: [640, 480]
+    #   fps: 30
+    #   cpu_core_id:
+    #     - 6
+
+    # - camera_serial_number: '135122079769'
+    #   camera_type: 'D400'  
+    #   camera_name: 'left_wrist_camera'
+    #   rgb_resolution: [640, 480]
+    #   depth_resolution: [640, 480]
+    #   random_sample_point_num: 3000
+    #   fps: 24
+    #   decimate: 2  # (0-4) decimation_filter magni；tude for point cloud
+    #   enable_streaming: False
+    #   streaming_server_ip: ${task.publisher.vr_server_ip}
+    #   streaming_server_port: 10004
+    #   streaming_quality: 10 # (0-100) 0: lowest quality, smallest size, 100: highest quality, largest size
+    #   streaming_chunk_size: 1024
+    #   streaming_display_params_list:
+    #     - position: [ -0.5, 0.0, 0.8 ]
+    #       rotation: [ -90, 50, 0. ]
+    #       scale: [ 0.005, 0.005, 0.005 ]
+    #   cpu_core_id:
+    #     - 10
+  # USB camera (GelSight)
+  usb_camera_publisher:
+  # gelsight_camera_publisher:
+    # - camera_name: 'left_gripper_camera_1'
+    #   camera_type: 'gelsight'
+    #   unique_id_substring: "2BNN4ZE7"
+    #   # fps: 15
+    #   fps: 30
+    #   vr_server_ip: ${task.publisher.vr_server_ip}
+    #   vr_server_port: ${task.publisher.vr_server_port}
+    #   dimension: 2
+    #   marker_vis_rotation_angle: 90
+    #   cpu_core_id:
+    #     # - 4
+    #     # - 5
+    #     - 6
+    - camera_name: 'left_gripper_camera_2'
+      camera_type: 'gelsight'
+      unique_id_substring: "2BVR3BUH"
+      # fps: 15
+      fps: 30
+      vr_server_ip: ${task.publisher.vr_server_ip}
+      vr_server_port: ${task.publisher.vr_server_port}
+      dimension: 2
+      marker_vis_rotation_angle: 90
+      cpu_core_id:
+        # - 1
+        # - 2
+        - 3
+
+  synexens_camera_publisher:
+    # - camera_name: 'synexens_depth_camera'
+    #   camera_type: 'synexens'
+    #   # camera_serial_number: '0'
+    #   # depth_resolution: [320, 240]
+    #   fps: 30
+    #   cpu_core_id:
+    #     - 9
+  
+  fisheye_camera_publisher:
+    # - camera_name: 'fisheye_front'
+    #   camera_type: 'Fisheye'
+    #   unique_id_substring: "icSpring_icspring_camera_20240307110607"
+    #   cpu_core_id:
+    #     - 8
+    #     # - 9
+    #   # fps: 15.0
+    #   fps: 30.0
+    #   debug: False
+      # auto_exposure: False
+      # exposure_time_absolute: 500
+      # gain: 32
+      # brightness: 10
+    # 1225 mvs use
+    - camera_name: 'fisheye_front'
+      camera_type: 'MVS'
+      unique_id_substring: "DA6242414" 
+      # unique_id_substring: "DA9057802"
+      cpu_core_id:
+        - 8
+      
+    # - camera_name: 'left_gripper_camera_2'
+    #   camera_type: 'MCTac'
+    #   fps: 24
+    #   vr_server_ip: ${task.publisher.vr_server_ip}
+    #   vr_server_port: ${task.publisher.vr_server_port}
+    #   dimension: 2
+    #   image_rotation: 0
+    #   marker_vis_rotation_angle: 0
+    #   cpu_core_id:
+    #     - 14
+
+  # synexens_camera_publisher:
+  #   - camera_name: 'synexens_depth_camera'
+  #     camera_type: 'synexens'
+  #     # camera_serial_number: '0'
+  #     # depth_resolution: [320, 240]
+  #     fps: 30
+  #     cpu_core_id:
+  #       - 9

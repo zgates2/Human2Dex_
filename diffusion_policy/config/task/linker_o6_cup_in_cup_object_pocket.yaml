@@ -1,0 +1,156 @@
+name: linker_o6_cup_in_cup_object_pocket
+
+# camera_obs_latency: 0.125
+# robot_obs_latency: 0.0001
+# gripper_obs_latency: 0.02
+# dataset_frequeny: 0 #59.94
+# obs_down_sample_steps: 3 # 3, 1
+# action_down_sample_steps: 3
+# low_dim_obs_horizon: 2
+# img_obs_horizon: 2
+# action_horizon: 16
+
+camera_obs_latency: 0.0
+robot_obs_latency: 0.0000
+gripper_obs_latency: 0.00
+dataset_frequeny: 30 #59.94
+obs_down_sample_steps: 3 # 降采样
+action_down_sample_steps: 3
+low_dim_obs_horizon: 1
+img_obs_horizon: 1
+action_horizon: 64
+
+ignore_proprioception: True   # Ignore EEF position and rotation in the policy input.
+# Kept True to preserve the current dirty-worktree behavior. Paper ablation
+# launchers override this explicitly so hand observation is never implicit.
+ignore_hand_observation: True
+# SequenceSampler adds this offset to the RGB-aligned sample index. Negative
+# values intentionally provide an older, stale hand observation.
+hand_obs_time_shift_steps: 0
+
+shape_meta: &shape_meta
+  # acceptable types: rgb, low_dim
+  obs:
+    camera0_rgb:
+      shape: [3, 224, 224]
+      horizon: ${task.img_obs_horizon} # int
+      latency_steps: 0 # float
+      down_sample_steps: ${task.obs_down_sample_steps} # int
+      type: rgb
+      ignore_by_policy: False
+    robot0_eef_pos:
+      shape: [3]
+      horizon: ${task.low_dim_obs_horizon} # int
+      latency_steps: ${eval:'(${task.camera_obs_latency} - ${task.robot_obs_latency}) * ${task.dataset_frequeny}'} # float
+      down_sample_steps: ${task.obs_down_sample_steps} # float
+      type: low_dim
+      ignore_by_policy: ${task.ignore_proprioception}           # ${task.ignore_proprioception}
+    # robot0_eef_pos_abs:
+    #   shape: [1]
+    #   axis: [2] # 2 means z-axis
+    #   horizon: ${task.low_dim_obs_horizon} # int
+    #   latency_steps: ${eval:'(${task.camera_obs_latency} - ${task.robot_obs_latency}) * ${task.dataset_frequeny}'} # float
+    #   down_sample_steps: ${task.obs_down_sample_steps} # float
+    #   type: low_dim
+    # robot0_eef_rot_axis_angle_abs:
+    #   shape: [2]
+    #   axis: [0, 1] # yaw and pitch
+    #   horizon: ${task.low_dim_obs_horizon} # int
+    #   latency_steps: ${eval:'(${task.camera_obs_latency} - ${task.robot_obs_latency}) * ${task.dataset_frequeny}'} # float
+    #   down_sample_steps: ${task.obs_down_sample_steps} # float
+    #   type: low_dim
+    robot0_eef_rot_axis_angle:
+      raw_shape: [3]
+      shape: [6]
+      horizon: ${task.low_dim_obs_horizon} # int
+      latency_steps: ${eval:'(${task.camera_obs_latency} - ${task.robot_obs_latency}) * ${task.dataset_frequeny}'} # float
+      down_sample_steps: ${task.obs_down_sample_steps} # float
+      type: low_dim
+      rotation_rep: rotation_6d
+      ignore_by_policy: ${task.ignore_proprioception}                 #${task.ignore_proprioception}
+    robot0_gripper_width:
+      shape: [6]
+      horizon: ${task.low_dim_obs_horizon} # int
+      latency_steps: ${task.hand_obs_time_shift_steps} # raw dataset frames; negative is stale
+      down_sample_steps: ${task.obs_down_sample_steps} # float
+      type: low_dim
+      # Training stores fused_o6_command here while deployment observes q_meas.
+      # Default to ignoring this mismatched signal; ablations may opt in.
+      ignore_by_policy: ${task.ignore_hand_observation}
+
+    # Configured object order is fixed by the data pipeline. For cup_in_cup_v1:
+    # green_disposable_plastic_cup[dx,dy,log_area,confidence,valid], then red_disposable_plastic_cup[...].
+    objectPocketObs:
+      shape: [10]
+      horizon: ${task.low_dim_obs_horizon}
+      latency_steps: 0
+      down_sample_steps: ${task.obs_down_sample_steps}
+      type: low_dim
+      normalizer: identity
+      ignore_by_policy: False
+
+    # pose with respect to episode start
+    # robot0_eef_pos_wrt_start:
+    #   shape: [3]
+    #   horizon: ${task.low_dim_obs_horizon} # int
+    #   latency_steps: ${eval:'(${task.camera_obs_latency} - ${task.robot_obs_latency}) * ${task.dataset_frequeny}'} # float
+    #   down_sample_steps: ${task.obs_down_sample_steps} # float
+    #   type: low_dim
+    #   ignore_by_policy: ${task.ignore_proprioception}
+    # robot0_eef_rot_axis_angle_wrt_start:
+    #   raw_shape: [3]
+    #   shape: [6]
+    #   horizon: ${task.low_dim_obs_horizon} # int
+    #   latency_steps: ${eval:'(${task.camera_obs_latency} - ${task.robot_obs_latency}) * ${task.dataset_frequeny}'} # float
+    #   down_sample_steps: ${task.obs_down_sample_steps} # float
+    #   type: low_dim
+    #   ignore_by_policy: ${task.ignore_proprioception}
+  action:
+    shape: [15]
+    horizon: ${task.action_horizon}
+    latency_steps: 0 # float
+    down_sample_steps: ${task.action_down_sample_steps} # int
+    rotation_rep: rotation_6d
+
+task_name: &task_name linker_o6_cup_in_cup_object_pocket
+dataset_path: /share/project/liyuanyuan/data/dexglove_data/dex_data/linker_o6/cup_in_cup_green_red_cup_pocket_single_view_skeleton_tcp_v1/dataset.zarr.zip
+in_the_wild_dataset_path: example_demo_session/in_the_wild_dataset.zarr.zip
+pose_repr: &pose_repr
+  obs_pose_repr: relative # abs or rel
+  action_pose_repr: relative # abs or rel or delta
+
+env_runner:
+  _target_: diffusion_policy.env_runner.real_pusht_image_runner.RealPushTImageRunner
+
+dataset:
+  _target_: diffusion_policy.dataset.umi_dataset.UmiDataset
+  shape_meta: *shape_meta
+  dataset_path: ${task.dataset_path}
+  cache_dir: null
+  pose_repr: *pose_repr
+  action_padding: False
+  temporally_independent_normalization: False
+  repeat_frame_prob: 0.0
+  max_duration: null
+  seed: 42
+  val_ratio: 0.05
+  # Keep an original episode and every _hand_aug variant in the same split.
+  # The adjacent manifest.json is generated by convert_pkl_to_training_zarr.py.
+  val_grouping: manifest_episode
+  val_group_suffix_pattern: '_app_aug(?:[0-9]+)?(?:_seg_[0-9]+)?$'
+  use_ratio: 1.0
+  dataset_idx: null
+
+in_the_wild_dataset:
+  _target_: diffusion_policy.dataset.umi_dataset.UmiDataset
+  shape_meta: *shape_meta
+  dataset_path: ${task.in_the_wild_dataset_path}
+  cache_dir: null
+  pose_repr: *pose_repr
+  action_padding: False
+  temporally_independent_normalization: False
+  repeat_frame_prob: 0.0
+  max_duration: null
+  seed: 42
+  val_ratio: 0.0
+  use_ratio: 1.0

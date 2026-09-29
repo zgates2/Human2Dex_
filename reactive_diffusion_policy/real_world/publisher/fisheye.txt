@@ -1,0 +1,30 @@
+python fisheye_camera_publisher.py 
+[INFO] [1756985920.099354708] [fisheye_auto_exposure_test_publisher]: 成功设置 'fisheye_auto_exposure_test': 自动曝光模式
+[INFO] [1756985920.099905889] [fisheye_auto_exposure_test_publisher]: 成功设置 'fisheye_auto_exposure_test': 自动白平衡
+[INFO] [1756985920.120444379] [fisheye_auto_exposure_test_publisher]: 摄像头 'fisheye_auto_exposure_test' 在 '/dev/v4l/by-id/usb-icSpring_icspring_camera_20240307110607-video-index0' 上已打开，将以 14.0 Hz 的频率发布图像。
+[INFO] [1756985921.909528863] [fisheye_auto_exposure_test_publisher]: 正在关闭摄像头 'fisheye_auto_exposure_test'...
+[INFO] [1756985921.911151686] [fisheye_auto_exposure_test_publisher]: 摄像头 'fisheye_auto_exposure_test' 已成功关闭。
+Traceback (most recent call last):
+  File "/home/ps/reactive_diffusion_policy/reactive_diffusion_policy/real_world/publisher/fisheye_camera_publisher.py", line 234, in <module>
+    main()
+  File "/home/ps/reactive_diffusion_policy/reactive_diffusion_policy/real_world/publisher/fisheye_camera_publisher.py", line 224, in main
+    rclpy.spin(node)
+  File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/__init__.py", line 229, in spin
+    executor.spin_once()
+  File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/executors.py", line 751, in spin_once
+    self._spin_once_impl(timeout_sec)
+  File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/executors.py", line 748, in _spin_once_impl
+    raise handler.exception()
+  File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/task.py", line 254, in __call__
+    self._handler.send(None)
+  File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/executors.py", line 447, in handler
+    await call_coroutine(entity, arg)
+  File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/executors.py", line 361, in _execute_timer
+    await await_or_execute(tmr.callback)
+  File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/executors.py", line 107, in await_or_execute
+    return callback(*args)
+  File "/home/ps/reactive_diffusion_policy/reactive_diffusion_policy/real_world/publisher/fisheye_camera_publisher.py", line 183, in capture_and_publish_once
+    msg.data = compressed_frame.flatten().tolist()
+  File "/opt/ros/humble/local/lib/python3.10/dist-packages/sensor_msgs/msg/_compressed_image.py", line 177, in data
+    assert \
+AssertionError: The 'data' field must be a set or sequence and each value of type 'int' and each unsigned integer in [0, 255]

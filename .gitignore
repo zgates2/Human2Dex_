@@ -1,0 +1,74 @@
+# Runtime data and generated datasets
+data/
+data_local/
+data_workspace/
+converted_data/
+*.pkl
+*.zarr/
+*.h5
+*.hdf5
+*.npy
+*.npz
+outputs/
+runs/
+wandb/
+ckpt/
+ckpts/
+checkpoint/
+checkpoints/
+pretrained_model/
+pretrained_models/
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.safetensors
+
+# Logs and caches
+logs/
+log/
+*.log
+*.out
+*.err
+*.trace
+*.prof
+*.pid
+*.tmp
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+.DS_Store
+
+# Local environments and IDE files
+.env
+.env.*
+.venv/
+venv/
+.idea/
+.vscode/
+
+# SAM3 and calibration artifacts
+sam/*
+sam3/
+data_calibration/
+MvSdkLog/
+
+# Native build products
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+*.so
+*.a
+*.o
+*.obj
+*.dylib
+*.dll
+
+# Local agent/session metadata
+.agents/
+.codex/

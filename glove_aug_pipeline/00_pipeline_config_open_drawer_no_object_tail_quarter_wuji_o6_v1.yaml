@@ -1,0 +1,44 @@
+# open_drawer no-object processed-data reuse pipeline.
+# Source is the already processed appearance PKL dataset.  This pipeline writes
+# a new non-destructive copy where each episode keeps the first 3/4 frames and
+# removes floor(N/4) tail frames, then builds linker_o6 and Wuji zarr datasets.
+
+runtime:
+  repo_root: /home/zjc/Desktop/human2dex
+  python: /share/project/liyuanyuan/anaconda3/envs/sam3/bin/python
+  data_scaling_laws_root: /home/zjc/Desktop/human2dex
+
+paths:
+  appearance_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/open_drawer/pipeline_no_object_v1/appearance_single_view_skeleton_v1
+  trimmed_appearance_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/open_drawer/pipeline_no_object_tail_quarter_v1/appearance_single_view_skeleton_tail_quarter_v1
+  o6_zarr_root: /share/project/liyuanyuan/data/dexglove_data/dex_data/linker_o6/open_drawer_no_object_single_view_skeleton_tcp_tail_quarter_v1
+  wuji_zarr_root: /share/project/liyuanyuan/data/dexglove_data/dex_data/wuji/open_drawer_no_object_single_view_skeleton_tcp_tail_quarter_v1
+
+fields:
+  source_image: rgbImage
+
+trim_tail:
+  frames: 0
+  fraction_numerator: 1
+  fraction_denominator: 4
+  fraction_rounding: floor
+  drop_short: false
+
+labels:
+  o6_action_field: fused_o6_command
+  wuji_action_field: fused_wuji_command
+  trajectory_field: trajectoryPose_tcp
+  trajectory_source: trajectoryPose_tcp
+  trajectory_min_dims: 6
+  skip_wuji: false
+
+zarr:
+  output_format: zip
+  image_compressor: blosc
+
+parallel:
+  zarr_workers: 64
+  zarr_opencv_threads: 1
+  zarr_blosc_threads: 1
+  zarr_image_batch_size: 32
+  zarr_max_inflight_tasks: 128

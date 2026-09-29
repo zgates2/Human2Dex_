@@ -1,0 +1,61 @@
+seed: 42
+
+data:
+  data_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/wrist_test_3
+  stage2_index: wrist/outputs/test_4/index/stage2_index.jsonl
+  stage2_fits: wrist/outputs/test_4/fits/stage2_mano_fits.jsonl
+  image_size: 448
+
+model:
+  dino_dir: wrist/dino
+  feature_dim: 384
+  patch_size: 16
+  pooling_dropout: 0.0
+  head_dropout: 0.1
+  decoder_layers: 2
+  decoder_heads: 6
+
+mano:
+  backend: manotorch
+  model_dir: wrist/mano_v1_2/models
+  side: right
+  use_pca: false          # 不用 MANO 的 PCA 低维手势参数，而是直接使用完整 MANO hand pose
+  flat_hand_mean: false   # MANO 的初始/均值手型使用 MANO 自带的 hand mean
+  output_scale: 1.0       # MANO Layer 输出的单位缩放系数
+  fit_error_threshold_mm: 20.0     # MPJPE > 20mm丢弃
+
+loss:
+  pose_weight: 1.0
+  joint_weight: 1.0
+  bone_weight: 0.1
+  pose_prior_weight: 0.01
+  joint_beta: 0.005
+
+train:
+  training_mode: one_stage   # one_stage: 从第1轮起联合训练 head + DINO 后若干 block；two_stage: 旧 A/B 流程
+  batch_size: 64
+  num_workers: 8
+  persistent_workers: true
+  prefetch_factor: 4
+  epochs_one_stage: 130
+  epochs_stage_a: 50
+  epochs_stage_b: 80
+  head_lr: 0.0001
+  backbone_lr: 0.00001
+  weight_decay: 0.05
+  warmup_epochs: 5
+  grad_clip: 1.0
+  grad_accum_steps: 1
+  precision: auto
+  unfreeze_last_blocks: 4
+  channels_last: true
+  allow_tf32: true
+  cudnn_benchmark: true
+  matmul_precision: high
+
+eval:
+  num_visuals: 8
+  save_visuals_every: 5
+
+output:
+  run_dir: wrist/outputs/test_3/runs

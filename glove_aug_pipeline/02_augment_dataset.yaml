@@ -1,0 +1,67 @@
+# DexUMI human hand augmentation config.
+#
+# Run:
+#   cd /home/zjc/Desktop/human2dex
+#   conda activate /share/project/liyuanyuan/anaconda3/envs/sam3
+#   python glove_aug_pipeline/02_augment_dataset.py --config glove_aug_pipeline/02_augment_dataset.yaml
+#
+# This file is set for a full run by default. For a quick test, set
+# limit_episodes and limit_frames to small numbers.
+
+paths:
+  input: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_6_pro
+  output: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_6_pro
+  mask_root: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_6_sam3_masks/masks
+  roi: null
+  qc_output: /share/project/liyuanyuan/data/dexglove_data/pkl_dataset/pick_6_aug_qc
+  image_subdirs:
+    - images
+    # - l515/ego/rgb
+    # - l515/external/rgb
+
+run:
+  variants: 1
+  episode_suffix: _hand_aug
+  seed: 20260606
+  quality: 95
+  qc_frames: 8
+  overwrite: false
+  save_masks: false
+  no_progress: false
+
+limits:
+  episode: null
+  limit_episodes: null
+  limit_frames: null
+
+parallel:
+  workers: 8
+  io_workers: 2
+  mp_start_method: fork
+
+mask:
+  min_mask_area: 180
+  bbox_padding: 8
+  feather_radius: 4.0
+
+style:
+  glove_variation: extreme
+  glove_material: mixed
+  background_variation: normal
+
+# Advanced ranges. Keep null to use the preset selected above.
+advanced:
+  glove_mix_range: null
+  glove_brightness_range: null
+  glove_contrast_range: null
+  glove_texture_strength_range: null
+  glove_noise_strength_range: null
+  glove_rib_strength_range: null
+  glove_speckle_strength_range: null
+  glove_sheen_strength_range: null
+  glove_shade_contrast_range: null
+  bg_brightness_range: null
+  bg_contrast_range: null
+  bg_hue_shift_range: null
+  bg_saturation_range: null
+  bg_mix_range: null

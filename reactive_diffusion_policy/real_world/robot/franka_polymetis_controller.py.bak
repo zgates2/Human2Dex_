@@ -1,0 +1,124 @@
+import time
+import numpy as np
+import zerorpc
+import scipy.spatial.transform as st
+from typing import List, Dict, Optional
+from loguru import logger
+
+
+class FrankaPolymetisController:
+    """Franka controller via Polymetis zerorpc server on nuc2."""
+
+    def __init__(
+        self,
+        server_ip: str = "172.16.13.170",
+        server_port: int = 4242,
+    ):
+        self.server_addr = f"tcp://{server_ip}:{server_port}"
+        self.client = zerorpc.Client()
+        self.client.connect(self.server_addr)
+        logger.info(f"Connected to Polymetis server at {self.server_addr}")
+
+        # default impedance gains
+        self.Kx = np.array([800.0, 800.0, 800.0, 150.0, 150.0, 150.0]) * 1.0
+        self.Kxd = np.sqrt(self.Kx) * 1.0
+
+        self._desired_pose_rpy: Optional[np.ndarray] = None
+        self._impedance_active = False
+
+    # ------------------------------------------------------------------ #
+    #  reset_to_home
+    # ------------------------------------------------------------------ #
+    def reset_to_home(self, joint_angles: List[float], time_to_go: float = 4.0) -> None:
+        if self._impedance_active:
+            self._stop_impedance()
+        self.client.move_to_joint_positions(joint_angles, time_to_go)
+        self._desired_pose_rpy = None
+        logger.info("Robot reset to home")
+
+    # ------------------------------------------------------------------ #
+    #  get_current_robot_states
+    # ------------------------------------------------------------------ #
+    def get_current_robot_states(self) -> Dict[str, List[float]]:
+        tcp_pose = self.client.get_ee_pose_rpy()       # [x,y,z,r,p,y]
+        tcp_vel = self.client.get_ee_vel()              # [vx,vy,vz,wx,wy,wz]
+        joint_pos = self.client.get_joint_positions()   # [q1..q7]
+        return {
+            "tcpPose": tcp_pose,
+            "tcpVel": tcp_vel,
+            "joinStates": joint_pos,
+        }
+
+    # ------------------------------------------------------------------ #
+    #  get_control_error_xyzrpy
+    # ------------------------------------------------------------------ #
+    def get_control_error_xyzrpy(self) -> Dict[str, List[float]]:
+        current = np.array(self.client.get_ee_pose_rpy())
+        cur_xyz_mm = (current[:3] * 1000.0).tolist()
+        cur_rpy_deg = np.degrees(current[3:]).tolist()
+
+        if self._desired_pose_rpy is None:
+            return {
+                "error_xyz_mm": [0.0, 0.0, 0.0],
+                "error_rpy_deg": [0.0, 0.0, 0.0],
+                "current_xyz_mm": cur_xyz_mm,
+                "current_rpy_deg": cur_rpy_deg,
+                "target_xyz_mm": [0.0, 0.0, 0.0],
+                "target_rpy_deg": [0.0, 0.0, 0.0],
+            }
+
+        target = self._desired_pose_rpy
+        err_xyz_mm = ((target[:3] - current[:3]) * 1000.0).tolist()
+
+        R_cur = st.Rotation.from_euler("xyz", current[3:])
+        R_tgt = st.Rotation.from_euler("xyz", target[3:])
+        R_err = R_cur.inv() * R_tgt
+        err_rpy_deg = np.degrees(R_err.as_euler("xyz")).tolist()
+
+        tgt_xyz_mm = (target[:3] * 1000.0).tolist()
+        tgt_rpy_deg = np.degrees(target[3:]).tolist()
+
+        return {
+            "error_xyz_mm": err_xyz_mm,
+            "error_rpy_deg": err_rpy_deg,
+            "current_xyz_mm": cur_xyz_mm,
+            "current_rpy_deg": cur_rpy_deg,
+            "target_xyz_mm": tgt_xyz_mm,
+            "target_rpy_deg": tgt_rpy_deg,
+        }
+
+    # ------------------------------------------------------------------ #
+    #  tcp_move
+    # ------------------------------------------------------------------ #
+    def tcp_move(self, goal_pose: List[float]) -> None:
+        """Move end-effector to goal_pose [x, y, z, r, p, y] (meters, radians)."""
+        if not self._impedance_active:
+            self._start_impedance()
+        self._desired_pose_rpy = np.array(goal_pose)
+        self.client.update_desired_ee_pose_rpy(goal_pose)
+
+    # ------------------------------------------------------------------ #
+    #  impedance helpers
+    # ------------------------------------------------------------------ #
+    def _start_impedance(self) -> None:
+        self.client.start_cartesian_impedance(self.Kx.tolist(), self.Kxd.tolist())
+        time.sleep(0.5)  # wait for policy to register on server
+        self._impedance_active = True
+        logger.info("Cartesian impedance started")
+
+    def _stop_impedance(self) -> None:
+        if self._impedance_active:
+            try:
+                self.client.terminate_current_policy()
+            except Exception as e:
+                logger.warning(f"terminate_current_policy failed: {e}")
+            self._impedance_active = False
+            logger.info("Cartesian impedance stopped")
+
+    # ------------------------------------------------------------------ #
+    #  cleanup
+    # ------------------------------------------------------------------ #
+    def close(self) -> None:
+        self._stop_impedance()
+        self.client.close()
+        logger.info("Connection closed")
